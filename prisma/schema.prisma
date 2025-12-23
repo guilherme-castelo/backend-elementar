@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Company {
+  id        Int        @id @default(autoincrement())
+  name      String
+  cnpj      String?
+  users     User[]
+  employees Employee[]
+  meals     Meal[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model User {
+  id          Int     @id @default(autoincrement())
+  email       String  @unique
+  password    String
+  name        String
+  phone       String?
+  jobTitle    String?
+  bio         String?
+  address     String?
+  preferences String?
+
+  companyId Int?
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  roles String @default("user") // Comma separated or simple string
+
+  ownedTasks         Task[] @relation("TaskOwner")
+  collaboratingTasks Task[] @relation("TaskCollaborators")
+
+  comments TaskComment[]
+
+  notifications Notification[]
+
+  sentMessages  Message[]
+  conversations Conversation[] @relation("UserConversations") // Implicit M:N
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Employee {
+  id           Int       @id @default(autoincrement())
+  matricula    String    @unique
+  firstName    String
+  lastName     String?
+  cpf          String?   @unique
+  funcao       String?
+  setor        String?
+  dataAdmissao DateTime
+  dataDemissao DateTime?
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id])
+
+  meals Meal[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Task {
+  id          String  @id @default(uuid()) // Using UUID to match frontend expectation of string IDs optionally
+  title       String
+  description String?
+  status      String  @default("todo") // todo, doing, done
+  priority    String  @default("medium") // low, medium, high
+  isPublic    Boolean @default(false)
+
+  ownerUserId Int
+  owner       User @relation("TaskOwner", fields: [ownerUserId], references: [id])
+
+  collaborators User[] @relation("TaskCollaborators")
+
+  comments TaskComment[]
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+  updatedAt   DateTime  @updatedAt
+}
+
+model TaskComment {
+  id      Int    @id @default(autoincrement())
+  content String
+
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  authorId Int
+  author   User @relation(fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id          String  @id @default(uuid())
+  type        String // chat, task-assigned, task-comment
+  title       String
+  description String
+  entityId    String?
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  actorName String?
+  read      Boolean @default(false)
+  archived  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+}
+
+model Conversation {
+  id            String    @id @default(uuid())
+  createdAt     DateTime  @default(now())
+  lastMessageAt DateTime?
+
+  participants User[]    @relation("UserConversations")
+  messages     Message[]
+}
+
+model Message {
+  id      String @id @default(uuid())
+  content String
+
+  senderId Int
+  sender   User @relation(fields: [senderId], references: [id])
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+  status    String? // sent, delivered, read
+}
+
+model Meal {
+  id          Int       @id @default(autoincrement())
+  date        DateTime
+  price       Decimal
+  periodStart DateTime?
+  periodEnd   DateTime?
+
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id])
+
+  // Snapshots for history (redundant but safe for reporting if generic employee changes)
+  employeeNameSnapshot   String?
+  employeeSectorSnapshot String?
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id])
+
+  createdAt DateTime @default(now())
+}
