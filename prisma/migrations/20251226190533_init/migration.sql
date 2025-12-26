@@ -97,6 +97,8 @@ CREATE TABLE "Message" (
     "senderId" INTEGER NOT NULL,
     "conversationId" TEXT NOT NULL,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deliveredAt" DATETIME,
+    "readAt" DATETIME,
     "status" TEXT,
     CONSTRAINT "Message_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "Message_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "Conversation" ("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -136,6 +138,12 @@ CREATE TABLE "_UserConversations" (
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Employee_matricula_key" ON "Employee"("matricula");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Employee_cpf_key" ON "Employee"("cpf");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "_TaskCollaborators_AB_unique" ON "_TaskCollaborators"("A", "B");

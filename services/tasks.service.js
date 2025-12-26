@@ -1,4 +1,4 @@
-const prisma = require('../utils/prisma');
+const prisma = require("../utils/prisma");
 
 class TasksService {
   async getAll(query, user) {
@@ -21,33 +21,33 @@ class TasksService {
       OR: [
         { isPublic: true },
         { ownerUserId: user.id },
-        { collaborators: { some: { id: user.id } } }
-      ]
+        { collaborators: { some: { id: user.id } } },
+      ],
     };
 
     const tasks = await prisma.task.findMany({
       where: {
-        AND: [where, visibilityFilter]
+        AND: [where, visibilityFilter],
       },
       include: {
         collaborators: {
-          select: { id: true, name: true, email: true } // Return basic user info
+          select: { id: true, name: true, email: true }, // Return basic user info
         },
         comments: {
-          include: { author: { select: { id: true, name: true } } }
+          include: { author: { select: { id: true, name: true } } },
         },
         owner: {
-          select: { id: true, name: true }
-        }
+          select: { id: true, name: true },
+        },
       },
       orderBy: {
-        updatedAt: 'desc'
-      }
+        updatedAt: "desc",
+      },
     });
 
-    return tasks.map(task => ({
+    return tasks.map((task) => ({
       ...task,
-      collaboratorUserIds: task.collaborators.map(c => c.id)
+      collaboratorUserIds: task.collaborators.map((c) => c.id),
     }));
   }
 
@@ -57,16 +57,16 @@ class TasksService {
       include: {
         collaborators: true,
         comments: {
-          include: { author: { select: { id: true, name: true } } }
-        }
-      }
+          include: { author: { select: { id: true, name: true } } },
+        },
+      },
     });
 
     if (!task) return null;
 
     return {
       ...task,
-      collaboratorUserIds: task.collaborators.map(c => c.id)
+      collaboratorUserIds: task.collaborators.map((c) => c.id),
     };
   }
 
@@ -78,44 +78,54 @@ class TasksService {
     // Connect collaborators
     if (collaboratorUserIds && Array.isArray(collaboratorUserIds)) {
       payload.collaborators = {
-        connect: collaboratorUserIds.map(uid => ({ id: uid }))
+        connect: collaboratorUserIds.map((uid) => ({ id: uid })),
       };
     }
 
-    if (!payload.status) payload.status = 'todo';
+    if (!payload.status) payload.status = "todo";
 
     const newTask = await prisma.task.create({
       data: payload,
-      include: { collaborators: true }
+      include: { collaborators: true },
     });
 
     return {
       ...newTask,
-      collaboratorUserIds: newTask.collaborators.map(c => c.id)
+      collaboratorUserIds: newTask.collaborators.map((c) => c.id),
     };
   }
 
   async update(id, data) {
-    const { collaboratorUserIds, comments, ...rest } = data; // Comments handled separately usually
+    const {
+      collaboratorUserIds,
+      comments,
+      id: _id,
+      createdAt,
+      updatedAt,
+      owner,
+      collaborators,
+      ownerUserId,
+      ...rest
+    } = data; // Comments handled separately usually
 
     const payload = { ...rest };
 
     // Update collaborators if provided
     if (collaboratorUserIds && Array.isArray(collaboratorUserIds)) {
       payload.collaborators = {
-        set: collaboratorUserIds.map(uid => ({ id: uid }))
+        set: collaboratorUserIds.map((uid) => ({ id: uid })),
       };
     }
 
     const updatedTask = await prisma.task.update({
       where: { id },
       data: payload,
-      include: { collaborators: true, comments: true }
+      include: { collaborators: true, comments: true },
     });
 
     return {
       ...updatedTask,
-      collaboratorUserIds: updatedTask.collaborators.map(c => c.id)
+      collaboratorUserIds: updatedTask.collaborators.map((c) => c.id),
     };
   }
 
@@ -127,7 +137,7 @@ class TasksService {
     return prisma.taskComment.findMany({
       where: { taskId },
       include: { author: { select: { id: true, name: true } } },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: "asc" },
     });
   }
 
@@ -137,9 +147,9 @@ class TasksService {
       data: {
         content: data.content,
         taskId: taskId,
-        authorId: data.authorId
+        authorId: data.authorId,
       },
-      include: { author: { select: { id: true, name: true } } }
+      include: { author: { select: { id: true, name: true } } },
     });
   }
 }
