@@ -160,27 +160,16 @@ Principais endpoints disponíveis. Para a documentação completa, consulte a co
 
 ## 🧪 Manual de Testes e Qualidade
 
-O projeto mantém uma política de qualidade focada na estabilidade dos serviços críticos (`Auth`, `Roles`, `Financial`).
+O projeto segue rigorosos padrões de qualidade. Para detalhes técnicos sobre mocks, estratégias e exemplos de código, consulte o arquivo dedicado:
 
-### Executando Testes
+👉 **[Guia Completo de Testes (TESTING.md)](./TESTING.md)**
 
-```bash
-# Rodar todos os testes
-npm test
+### Resumo Rápido
 
-# Rodar com relatório de cobertura (Coverage)
-npm run test:coverage
-
-# Rodar um arquivo específico
-npm test tests/unit/auth.service.test.js
-```
-
-### Arquitetura de Testes (Jest)
-
-1.  **Unitários (`/tests/unit`)**: Testam a lógica de negócio dos Services (`services/*.js`).
-
-    - **Mocking**: Utilizamos um **Manual Mock** do Prisma para evitar conexões reais e garantir velocidade.
-    - O mock reside em: `utils/__mocks__/prisma.js`.
+- **Unitários**: Isolados (Services e Controllers).
+- **Integração**: Rotas API com `supertest`.
+- **Comando**: `npm run test:coverage` (Busca 100% de cobertura).
+  - O mock reside em: `utils/__mocks__/prisma.js`.
 
 2.  **Integração (`/tests/integration`)**: Testam o contrato da API (`routes` -> `controllers`).
     - Validam respostas HTTP (200, 403, 400).
