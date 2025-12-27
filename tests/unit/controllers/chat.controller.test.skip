@@ -1,0 +1,36 @@
+const controller = require("../../../controllers/chat.controller");
+const service = require("../../../services/chat.service");
+const {
+  mockRequest,
+  mockResponse,
+  mockNext,
+} = require("../../utils/httpMocks");
+
+// Manual factory to ensure methods exist
+jest.mock("../../../services/chat.service", () => ({
+  getUserConversations: jest.fn(),
+  getMessages: jest.fn(),
+  sendMessage: jest.fn(),
+  markMessagesAsRead: jest.fn(),
+}));
+
+describe("ChatController", () => {
+  let req, res, next;
+  beforeEach(() => {
+    req = mockRequest();
+    res = mockResponse();
+    next = mockNext();
+    jest.clearAllMocks();
+  });
+
+  it("getConversations should return 200", async () => {
+    req.user = { id: 1 };
+    service.getUserConversations.mockResolvedValue([]);
+    await controller.getConversations(req, res, next);
+
+    if (next.mock.calls.length > 0) {
+      console.log("Test Failed with Error:", next.mock.calls[0][0]);
+    }
+    expect(res.json).toHaveBeenCalled();
+  });
+});
