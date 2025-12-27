@@ -23,6 +23,7 @@ const notificationsRoutes = require("./routes/notifications.routes");
 const featuresRoutes = require("./routes/features.routes");
 const permissionsRoutes = require("./routes/permissions.routes");
 const rolesRoutes = require("./routes/roles.routes");
+const invitationsRoutes = require("./routes/invitations.routes");
 
 // Routes Registration
 app.use("/auth", authRoutes); // /auth/login, /auth/me
@@ -35,6 +36,7 @@ app.use("/notifications", notificationsRoutes);
 app.use("/features", featuresRoutes);
 app.use("/permissions", permissionsRoutes);
 app.use("/roles", rolesRoutes);
+app.use("/invitations", invitationsRoutes);
 // Chat routes often have weird structures in legacy apps, but standardizing here:
 // If frontend expects /conversations directly, we might need alias.
 // Assuming /api/v1/chat prefixes or similar. For MVP, typical:

@@ -155,8 +155,6 @@ Além da cobertura de linhas, nossa suíte garante as seguintes regras funcionai
     - Com Token mas Sem Permissão -> Retorna **403 Forbidden**.
     - Com Token e Permissão -> Acesso **200 OK**.
 
-
-
 ### 👥 Gestão de Usuários
 
 1.  **Criptografia**: Ao criar usuário, a senha é sempre hashada (Bcrypt) antes de salvar.
@@ -172,7 +170,18 @@ Além da cobertura de linhas, nossa suíte garante as seguintes regras funcionai
 
 1.  **Vínculo**: Refeições só podem ser registradas para funcionários ativos e existentes.
 2.  **Validação**: Um funcionário não pode registrar mais de uma refeição por dia.
-3.  **Validação**: Quando um funcionário inativa-se, suas refeições não são removidas, mas sim marcadas como `isDeleted: true`. 
+3.  **Validação**: Quando um funcionário inativa-se, suas refeições não são removidas, mas sim marcadas como `isDeleted: true`.
 4.  **Validação**: Nos relatórios, apenas refeições com `isDeleted: false` são consideradas.
 
+### 🚀 SaaS & Multi-tenancy (Roadmap)
 
+1.  **Isolamento de Dados (Tenant Isolation)**:
+    - Toda consulta (`find`) deve ter `where: { companyId }` forçado.
+    - O `companyId` vindo do `req.body` deve ser ignorado/sobrescrito pelo do token.
+2.  **Limites do Plano (Billing)**:
+    - Criação de recursos (Users, Features) bloqueada se exceder o limite do plano da empresa.
+    - Empresas inadimplentes (`status: overdue`) entram em modo somente leitura.
+3.  **Auditoria (Compliance)**:
+    - Edições em dados sensíveis (Financeiro, Roles) geram registro imutável em `AuditLog`.
+4.  **Onboarding Seguro**:
+    - Admins não definem senhas de usuários. O fluxo deve ser via **Convite por Email** com token de expiração.

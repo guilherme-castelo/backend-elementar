@@ -7,9 +7,18 @@ const checkPermission = require("../middlewares/permission");
 
 router.use(authGuard);
 
+const checkUsage = require("../middlewares/usage");
+
 router.get("/", checkPermission("user:read"), controller.getAll);
 router.get("/:id", checkPermission("user:read"), controller.getById);
-router.post("/", checkPermission("user:create"), controller.create);
+
+// Apply Plan Limit Check
+router.post(
+  "/",
+  checkPermission("user:create"),
+  checkUsage("users"),
+  controller.create
+);
 router.put("/:id", checkPermission("user:update"), controller.update);
 router.delete("/:id", checkPermission("user:delete"), controller.delete);
 

@@ -48,7 +48,16 @@ const authGuard = async (req, res, next) => {
       permissions: permissions,
     };
 
-    next();
+    // Initialize Request Context with Tenant info
+    const store = {
+      userId: user.id,
+      companyId: user.companyId, // Critical for Tenant Isolation
+    };
+
+    const { runWithContext } = require("../utils/context");
+    runWithContext(store, () => {
+      next();
+    });
   } catch (error) {
     if (error.name === "TokenExpiredError") {
       return res.status(401).json({ message: "Token expired" });

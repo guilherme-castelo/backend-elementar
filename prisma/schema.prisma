@@ -8,15 +8,59 @@ datasource db {
 }
 
 model Company {
-  id        Int        @id @default(autoincrement())
-  name      String
-  cnpj      String?
-  isActive  Boolean    @default(true)
+  id       Int     @id @default(autoincrement())
+  name     String
+  cnpj     String?
+  isActive Boolean @default(true)
+
+  // SaaS Fields
+  planId                Int?
+  plan                  Plan?     @relation(fields: [planId], references: [id])
+  status                String    @default("active") // active, overdue, suspended
+  subscriptionExpiresAt DateTime?
+
   users     User[]
   employees Employee[]
   meals     Meal[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+}
+
+model Plan {
+  id       Int     @id @default(autoincrement())
+  name     String  @unique // Free, Starter, Pro
+  maxUsers Int
+  features String // JSON string: ["reports", "api", "priority_support"]
+  price    Decimal @default(0.0)
+
+  companies Company[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Invitation {
+  id        String @id @default(uuid())
+  email     String
+  token     String @unique
+  roleId    Int
+  companyId Int
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+}
+
+model AuditLog {
+  id        String  @id @default(uuid())
+  actorId   Int? // User who performed action
+  action    String // CREATE, UPDATE, DELETE
+  entity    String // User, Permisson, Company
+  entityId  String // ID of affected entity
+  details   String? // JSON with before/after data
+  ipAddress String?
+
+  createdAt DateTime @default(now())
 }
 
 // RBAC Models
