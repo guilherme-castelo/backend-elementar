@@ -3,6 +3,8 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const errorHandler = require("./middlewares/error");
 const config = require("./config/config");
+const swaggerUi = require("swagger-ui-express");
+const specs = require("./config/swagger");
 
 const app = express();
 
@@ -10,6 +12,9 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// Swagger Documentation
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
 
 // Routes Imports
 const authRoutes = require("./routes/auth.routes");
