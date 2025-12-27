@@ -14,17 +14,10 @@ class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Default connection to company 1 if not provided, or handle creation logic
-    // For MVP, if companyId is provided use it, else generic.
-    // Logic from previous controller: companyId || 1
-
-    // Create User
     // Default Role: 'User' (id lookup)
     const defaultRole = await prisma.role.findUnique({
       where: { name: "User" },
     });
-
-    // Fallback if seed failed or role missing
     const roleId = defaultRole ? defaultRole.id : undefined;
 
     const user = await prisma.user.create({
@@ -70,18 +63,36 @@ class AuthService {
   }
 
   async me(userId) {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: { include: { permissions: true } } },
+    });
     if (!user) throw new Error("User not found");
+
     const { password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+
+    // Flatten permissions
+    const permissions = user.role
+      ? user.role.permissions.map((p) => p.slug)
+      : [];
+
+    return {
+      ...userWithoutPassword,
+      permissions,
+    };
   }
 
   _generateAuthResponse(user) {
+    // Flatten permissions
+    const permissions = user.role
+      ? user.role.permissions.map((p) => p.slug)
+      : [];
+
     const token = jwt.sign(
       {
         id: user.id,
         email: user.email,
-        roles: user.roles,
+        role: user.role ? user.role.name : "Unknown",
         name: user.name,
         companyId: user.companyId,
       },
@@ -91,42 +102,11 @@ class AuthService {
 
     const { password: _, ...userWithoutPassword } = user;
 
-    // Permissions logic
-    // We used to fetch from 'roles' table.
-    // Now roles is a string in User. Using simple mapping for MVP.
-    // If 'admin' -> all permissions. If 'user' -> basic.
-    const permissions = this._getPermissionsForRole(user.roles);
-
     return {
       user: userWithoutPassword,
       token,
       permissions,
     };
-  }
-
-  _getPermissionsForRole(role) {
-    // Hardcoded map or fetch from DB if we had Role model.
-    // Using simple switch for Refactor MVP as per Schema decision (String role).
-    const allPermissions = [
-      "users:read",
-      "users:create",
-      "users:update",
-      "users:delete",
-      "companies:manage",
-      "employees:read",
-      "employees:create",
-      "employees:update",
-      "employees:delete",
-      "meals:read",
-      "meals:register",
-      "meals:reports",
-      "meals:delete",
-    ];
-
-    const userPermissions = ["users:read", "employees:read", "meals:read"];
-
-    if (role.includes("admin")) return allPermissions;
-    return userPermissions;
   }
 }
 
