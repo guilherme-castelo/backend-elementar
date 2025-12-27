@@ -134,7 +134,11 @@ O sistema utiliza um modelo hierárquico: **Feature -> Permission -> Role -> Use
 
 ## 📖 Documentação da API
 
-Principais endpoints disponíveis. Para a documentação completa, consulte a coleção do Postman (export disponível na pasta `/docs`).
+Principais endpoints disponíveis. Para a documentação completa e interativa, acesse o **Swagger UI** rodando o projeto e navegando para:
+
+👉 **[http://localhost:3000/api-docs](http://localhost:3000/api-docs)**
+
+Você também pode consultar a coleção do Postman (export disponível na pasta `/docs`).
 
 ### Autenticação
 
