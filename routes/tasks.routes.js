@@ -3,14 +3,16 @@ const router = express.Router();
 const controller = require("../controllers/tasks.controller");
 const authGuard = require("../middlewares/auth");
 
+const checkPermission = require("../middlewares/permission");
+
 router.use(authGuard);
 
-router.get("/", controller.getAll);
-router.get("/:id", controller.getOne);
-router.post("/", controller.create);
-router.put("/:id", controller.update);
-router.patch("/:id", controller.update); // JSON Server uses PATCH for partial updates usually
-router.delete("/:id", controller.delete);
+router.get("/", checkPermission("task:read"), controller.getAll);
+router.get("/:id", checkPermission("task:read"), controller.getOne);
+router.post("/", checkPermission("task:create"), controller.create);
+router.put("/:id", checkPermission("task:update"), controller.update);
+router.patch("/:id", checkPermission("task:update"), controller.update);
+router.delete("/:id", checkPermission("task:delete"), controller.delete);
 
 router.get("/:id/comments", controller.getComments);
 router.post("/:id/comments", controller.addComment);

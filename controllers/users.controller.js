@@ -1,9 +1,9 @@
-const usersService = require('../services/users.service');
+const usersService = require("../services/users.service");
 
 exports.getAll = async (req, res, next) => {
   try {
     const data = await usersService.getAll();
-    const safeData = data.map(u => {
+    const safeData = data.map((u) => {
       const { password, ...rest } = u;
       return rest;
     });
@@ -16,7 +16,7 @@ exports.getAll = async (req, res, next) => {
 exports.getById = async (req, res, next) => {
   try {
     const data = await usersService.getById(req.params.id);
-    if (!data) return res.status(404).json({ message: 'User not found' });
+    if (!data) return res.status(404).json({ message: "User not found" });
     const { password, ...rest } = data;
     res.json(rest);
   } catch (error) {
@@ -49,5 +49,14 @@ exports.delete = async (req, res, next) => {
     res.status(204).send();
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+exports.inactivate = async (req, res, next) => {
+  try {
+    await usersService.update(req.params.id, { isActive: false });
+    res.status(204).send();
+  } catch (error) {
+    next(error);
   }
 };

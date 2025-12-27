@@ -11,11 +11,50 @@ model Company {
   id        Int        @id @default(autoincrement())
   name      String
   cnpj      String?
+  isActive  Boolean    @default(true)
   users     User[]
   employees Employee[]
   meals     Meal[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+}
+
+// RBAC Models
+model Feature {
+  id          Int     @id @default(autoincrement())
+  name        String
+  slug        String  @unique
+  description String?
+  isActive    Boolean @default(true)
+
+  permissions Permission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Permission {
+  id          Int     @id @default(autoincrement())
+  name        String
+  slug        String  @unique
+  description String?
+
+  featureId Int
+  feature   Feature @relation(fields: [featureId], references: [id])
+
+  roles Role[]
+}
+
+model Role {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  description String?
+
+  permissions Permission[]
+  users       User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model User {
@@ -28,11 +67,13 @@ model User {
   bio         String?
   address     String?
   preferences String?
+  isActive    Boolean @default(true)
 
   companyId Int?
   company   Company? @relation(fields: [companyId], references: [id])
 
-  roles String @default("user") // Comma separated or simple string
+  roleId Int?
+  role   Role? @relation(fields: [roleId], references: [id])
 
   ownedTasks         Task[] @relation("TaskOwner")
   collaboratingTasks Task[] @relation("TaskCollaborators")
@@ -137,10 +178,10 @@ model Message {
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime  @default(now())
+  createdAt   DateTime  @default(now())
   deliveredAt DateTime?
-  readAt    DateTime?
-  status    String? // sent, delivered, read
+  readAt      DateTime?
+  status      String? // sent, delivered, read
 }
 
 model Meal {

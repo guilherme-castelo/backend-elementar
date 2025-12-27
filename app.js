@@ -1,8 +1,8 @@
-const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
-const errorHandler = require('./middlewares/error');
-const config = require('./config/config');
+const express = require("express");
+const cors = require("cors");
+const bodyParser = require("body-parser");
+const errorHandler = require("./middlewares/error");
+const config = require("./config/config");
 
 const app = express();
 
@@ -12,27 +12,35 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // Routes Imports
-const authRoutes = require('./routes/auth.routes');
-const usersRoutes = require('./routes/users.routes');
-const companiesRoutes = require('./routes/companies.routes');
-const employeesRoutes = require('./routes/employees.routes');
-const mealsRoutes = require('./routes/meals.routes');
-const tasksRoutes = require('./routes/tasks.routes');
-const chatRoutes = require('./routes/chat.routes');
-const notificationsRoutes = require('./routes/notifications.routes');
+const authRoutes = require("./routes/auth.routes");
+const usersRoutes = require("./routes/users.routes");
+const companiesRoutes = require("./routes/companies.routes");
+const employeesRoutes = require("./routes/employees.routes");
+const mealsRoutes = require("./routes/meals.routes");
+const tasksRoutes = require("./routes/tasks.routes");
+const chatRoutes = require("./routes/chat.routes");
+const chatRoutes = require("./routes/chat.routes");
+const notificationsRoutes = require("./routes/notifications.routes");
+const featuresRoutes = require("./routes/features.routes");
+const permissionsRoutes = require("./routes/permissions.routes");
+const rolesRoutes = require("./routes/roles.routes");
 
 // Routes Registration
-app.use('/auth', authRoutes); // /auth/login, /auth/me
-app.use('/users', usersRoutes);
-app.use('/companies', companiesRoutes);
-app.use('/employees', employeesRoutes);
-app.use('/meals', mealsRoutes);
-app.use('/tasks', tasksRoutes);
-app.use('/notifications', notificationsRoutes);
+app.use("/auth", authRoutes); // /auth/login, /auth/me
+app.use("/users", usersRoutes);
+app.use("/companies", companiesRoutes);
+app.use("/employees", employeesRoutes);
+app.use("/meals", mealsRoutes);
+app.use("/tasks", tasksRoutes);
+app.use("/tasks", tasksRoutes);
+app.use("/notifications", notificationsRoutes);
+app.use("/features", featuresRoutes);
+app.use("/permissions", permissionsRoutes);
+app.use("/roles", rolesRoutes);
 // Chat routes often have weird structures in legacy apps, but standardizing here:
 // If frontend expects /conversations directly, we might need alias.
 // Assuming /api/v1/chat prefixes or similar. For MVP, typical:
-app.use('/chat', chatRoutes); // /chat/conversations
+app.use("/chat", chatRoutes); // /chat/conversations
 // "conversations": [] in db.json usually implies /conversations endpoint.
 // json-server serves everything at root.
 // To mimic json-server exactly, we might want to mount these at root.
@@ -42,11 +50,11 @@ app.use('/chat', chatRoutes); // /chat/conversations
 // Yes.
 
 // Fallback for comments if accessed directly
-// app.use('/comments', ...); 
+// app.use('/comments', ...);
 
 // 404 Handler
 app.use((req, res, next) => {
-  res.status(404).json({ message: 'Route not found' });
+  res.status(404).json({ message: "Route not found" });
 });
 
 // Error Handling

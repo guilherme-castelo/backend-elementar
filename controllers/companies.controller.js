@@ -1,4 +1,4 @@
-const companyService = require('../services/companies.service');
+const companyService = require("../services/companies.service");
 
 exports.getAll = async (req, res, next) => {
   try {
@@ -12,7 +12,7 @@ exports.getAll = async (req, res, next) => {
 exports.getById = async (req, res, next) => {
   try {
     const data = await companyService.getById(req.params.id);
-    if (!data) return res.status(404).json({ message: 'Company not found' });
+    if (!data) return res.status(404).json({ message: "Company not found" });
     res.json(data);
   } catch (error) {
     next(error);
@@ -47,17 +47,35 @@ exports.delete = async (req, res, next) => {
 };
 
 exports.getRoles = async (req, res, next) => {
-    res.json([
-        { id: 'admin', name: 'Admin' },
-        { id: 'user', name: 'User' }
-    ]);
+  res.json([
+    { id: "admin", name: "Admin" },
+    { id: "user", name: "User" },
+  ]);
 };
 
 exports.getPermissions = async (req, res, next) => {
-     res.json([
-      "users:read", "users:create", "users:update", "users:delete",
-      "companies:manage",
-      "employees:read", "employees:create", "employees:update", "employees:delete",
-      "meals:read", "meals:register", "meals:reports", "meals:delete"
-    ]);
+  res.json([
+    "users:read",
+    "users:create",
+    "users:update",
+    "users:delete",
+    "companies:manage",
+    "employees:read",
+    "employees:create",
+    "employees:update",
+    "employees:delete",
+    "meals:read",
+    "meals:register",
+    "meals:reports",
+    "meals:delete",
+  ]);
+};
+
+exports.inactivate = async (req, res, next) => {
+  try {
+    await companyService.update(req.params.id, { isActive: false });
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
 };

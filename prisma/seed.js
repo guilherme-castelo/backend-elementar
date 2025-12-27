@@ -1,62 +1,190 @@
-require('dotenv').config();
-const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs');
+const { PrismaClient } = require("@prisma/client");
+const bcrypt = require("bcryptjs");
 
 const prisma = new PrismaClient();
 
 async function main() {
-  // Create Company
+  console.log("Seeding database...");
+
+  // 1. Create Features & Permissions
+  // Definition of Features and their permissions
+  const features = [
+    {
+      name: "Gestão de Empresas",
+      slug: "companies",
+      permissions: [
+        { name: "Criar Empresa", slug: "company:create" },
+        { name: "Ler Empresa", slug: "company:read" },
+        { name: "Atualizar Empresa", slug: "company:update" },
+        { name: "Deletar Empresa", slug: "company:delete" },
+        { name: "Inativar Empresa", slug: "company:inactivate" },
+      ],
+    },
+    {
+      name: "Gestão de Usuários",
+      slug: "users",
+      permissions: [
+        { name: "Criar Usuário", slug: "user:create" },
+        { name: "Ler Usuário", slug: "user:read" },
+        { name: "Atualizar Usuário", slug: "user:update" },
+        { name: "Deletar Usuário", slug: "user:delete" },
+        { name: "Inativar Usuário", slug: "user:inactivate" },
+      ],
+    },
+    {
+      name: "Gestão de Funcionários",
+      slug: "employees",
+      permissions: [
+        { name: "Criar Funcionário", slug: "employee:create" },
+        { name: "Ler Funcionário", slug: "employee:read" },
+        { name: "Atualizar Funcionário", slug: "employee:update" },
+        { name: "Deletar Funcionário", slug: "employee:delete" },
+      ],
+    },
+    {
+      name: "Gestão de Refeições",
+      slug: "meals",
+      permissions: [
+        { name: "Registrar Refeição", slug: "meal:create" },
+        { name: "Ler Refeição", slug: "meal:read" },
+        { name: "Deletar Refeição", slug: "meal:delete" },
+      ],
+    },
+    {
+      name: "Tarefas",
+      slug: "tasks",
+      permissions: [
+        { name: "Criar Tarefa", slug: "task:create" },
+        { name: "Ler Tarefa", slug: "task:read" },
+        { name: "Atualizar Tarefa", slug: "task:update" },
+        { name: "Deletar Tarefa", slug: "task:delete" },
+      ],
+    },
+    {
+      name: "Configurações de Acesso",
+      slug: "access_control",
+      permissions: [
+        { name: "Gerenciar Features", slug: "feature:manage" },
+        { name: "Gerenciar Permissões", slug: "permission:manage" },
+        { name: "Gerenciar Perfis", slug: "role:manage" },
+      ],
+    },
+  ];
+
+  for (const feat of features) {
+    const feature = await prisma.feature.upsert({
+      where: { slug: feat.slug },
+      update: {},
+      create: {
+        name: feat.name,
+        slug: feat.slug,
+        description: `Módulo de ${feat.name}`,
+      },
+    });
+
+    for (const perm of feat.permissions) {
+      await prisma.permission.upsert({
+        where: { slug: perm.slug },
+        update: { featureId: feature.id },
+        create: {
+          name: perm.name,
+          slug: perm.slug,
+          featureId: feature.id,
+        },
+      });
+    }
+  }
+
+  // 2. Create Roles
+  const allPermissions = await prisma.permission.findMany();
+
+  const adminRole = await prisma.role.upsert({
+    where: { name: "Admin" },
+    update: {},
+    create: {
+      name: "Admin",
+      description: "Acesso total ao sistema",
+      permissions: {
+        connect: allPermissions.map((p) => ({ id: p.id })),
+      },
+    },
+  });
+
+  // User Role (Basic access)
+  // Filter permissions for basic user
+  const basicSlugs = [
+    "task:create",
+    "task:read",
+    "task:update",
+    "meal:read",
+    "user:read",
+    "employee:read",
+  ];
+  const basicPermissions = allPermissions.filter((p) =>
+    basicSlugs.includes(p.slug)
+  );
+
+  const userRole = await prisma.role.upsert({
+    where: { name: "User" },
+    update: {},
+    create: {
+      name: "User",
+      description: "Usuário padrão do sistema",
+      permissions: {
+        connect: basicPermissions.map((p) => ({ id: p.id })),
+      },
+    },
+  });
+
+  // Manage Role (HR Manager)
+  const managerSlugs = [
+    ...basicSlugs,
+    "employee:create",
+    "employee:update",
+    "meal:create",
+    "meal:delete",
+  ];
+  const managerPermissions = allPermissions.filter((p) =>
+    managerSlugs.includes(p.slug)
+  );
+
+  await prisma.role.upsert({
+    where: { name: "Manager" },
+    update: {},
+    create: {
+      name: "Manager",
+      description: "Gestor de RH e Operações",
+      permissions: {
+        connect: managerPermissions.map((p) => ({ id: p.id })),
+      },
+    },
+  });
+
+  // 3. Create Default Company & User
   const company = await prisma.company.upsert({
     where: { id: 1 },
     update: {},
     create: {
-      name: 'Brasil Auto Serviço de Produtos Alimenticios SA',
-      cnpj: '10964693000196'
-    }
+      name: "Elementar Corp",
+      cnpj: "00.000.000/0001-00",
+    },
   });
 
-  // Create Admin User
-  const adminPassword = await bcrypt.hash('admin', 10);
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@empresa.test' },
-    update: {},
+  const hashedPassword = await bcrypt.hash("123456", 10);
+
+  const adminUser = await prisma.user.upsert({
+    where: { email: "admin@elementar.com" },
+    update: { roleId: adminRole.id }, // Ensure admin has role
     create: {
-      email: 'admin@empresa.test',
-      name: 'Admin',
-      password: adminPassword,
+      name: "Administrador",
+      email: "admin@elementar.com",
+      password: hashedPassword,
       companyId: company.id,
-      roles: 'admin',
-      jobTitle: 'Administrator',
-      bio: 'System Administrator',
-      preferences: JSON.stringify({
-        language: { code: 'pt', name: 'Portuguese (Brazil)' },
-        dateFormat: 'DD/MM/YYYY',
-        automaticTimeZone: { name: 'GMT-03:00', isEnabled: true }
-      })
-    }
+      roleId: adminRole.id,
+    },
   });
 
-  // Create Standard User
-  const userPassword = await bcrypt.hash('123456', 10);
-  const user = await prisma.user.upsert({
-    where: { email: 'user@empresa.test' },
-    update: {},
-    create: {
-      email: 'user@empresa.test',
-      name: 'User',
-      password: userPassword,
-      companyId: company.id,
-      roles: 'user',
-      jobTitle: 'Employee',
-      preferences: JSON.stringify({
-        language: { code: 'pt', name: 'Portuguese (Brazil)' },
-        dateFormat: 'DD/MM/YYYY',
-        automaticTimeZone: { name: 'GMT-03:00', isEnabled: true }
-      })
-    }
-  });
-
-  console.log({ company, admin, user });
+  console.log("Seed completed successfully.");
 }
 
 main()
