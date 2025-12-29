@@ -69,6 +69,13 @@ async function main() {
         { name: "Gerenciar Perfis", slug: "role:manage" },
       ],
     },
+    {
+      name: "Integrações",
+      slug: "integrations",
+      permissions: [
+        { name: "Integração Domínio", slug: "integration:dominio" },
+      ],
+    },
   ];
 
   for (const feat of features) {
@@ -151,6 +158,7 @@ async function main() {
     "employee:update",
     "meal:create",
     "meal:delete",
+    "integration:dominio",
   ];
   const managerPermissions = allPermissions.filter((p) =>
     managerSlugs.includes(p.slug)

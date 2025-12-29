@@ -13,6 +13,10 @@ model Company {
   cnpj     String?
   isActive Boolean @default(true)
 
+  // Domínio Web Integration
+  dominioRubric String?
+  dominioCode   String?
+
   // SaaS Fields
   planId                Int?
   plan                  Plan?     @relation(fields: [planId], references: [id])
