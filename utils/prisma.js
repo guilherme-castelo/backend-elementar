@@ -1,20 +1,22 @@
 const { PrismaClient } = require("@prisma/client");
 const { getTenantId } = require("./context");
 
+const TENANT_MODELS = ["User", "Employee", "Meal", "Invitation"];
+
 const prisma = new PrismaClient().$extends({
   query: {
     $allModels: {
-      async findMany({ args, query }) {
+      async findMany({ model, args, query }) {
         const companyId = getTenantId();
-        if (companyId) {
+        if (companyId && TENANT_MODELS.includes(model)) {
           // Inject companyId into where clause
           args.where = { ...args.where, companyId };
         }
         return query(args);
       },
-      async findFirst({ args, query }) {
+      async findFirst({ model, args, query }) {
         const companyId = getTenantId();
-        if (companyId) {
+        if (companyId && TENANT_MODELS.includes(model)) {
           args.where = { ...args.where, companyId };
         }
         return query(args);
@@ -28,16 +30,16 @@ const prisma = new PrismaClient().$extends({
         // For stricter isolation, developers should prefer findFirst({ where: { id, companyId }})
         return query(args);
       },
-      async count({ args, query }) {
+      async count({ model, args, query }) {
         const companyId = getTenantId();
-        if (companyId) {
+        if (companyId && TENANT_MODELS.includes(model)) {
           args.where = { ...args.where, companyId };
         }
         return query(args);
       },
-      async create({ args, query }) {
+      async create({ model, args, query }) {
         const companyId = getTenantId();
-        if (companyId) {
+        if (companyId && TENANT_MODELS.includes(model)) {
           // Auto-assign companyId on create
           args.data = { ...args.data, companyId };
         }

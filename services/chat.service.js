@@ -1,5 +1,5 @@
-const prisma = require('../utils/prisma');
-const { getIO } = require('../utils/socket');
+const prisma = require("../utils/prisma");
+const { getIO } = require("../utils/socket");
 
 class ChatService {
   async getConversations(userId) {
@@ -9,29 +9,29 @@ class ChatService {
       where: {
         participants: {
           some: {
-            id: userId
-          }
-        }
+            id: userId,
+          },
+        },
       },
       include: {
         participants: {
-          select: { id: true, name: true, email: true, roles: true }
+          select: { id: true, name: true, email: true, role: true },
         },
         messages: {
           take: 1,
-          orderBy: { createdAt: 'desc' }
-        }
+          orderBy: { createdAt: "desc" },
+        },
       },
       orderBy: {
-        lastMessageAt: 'desc'
-      }
+        lastMessageAt: "desc",
+      },
     });
 
-    return conversations.map(c => ({
+    return conversations.map((c) => ({
       ...c,
-      participantIds: c.participants.map(p => p.id),
+      participantIds: c.participants.map((p) => p.id),
       lastMessageSenderId: c.messages[0]?.senderId,
-      lastMessageStatus: c.messages[0]?.status
+      lastMessageStatus: c.messages[0]?.status,
     }));
   }
 
@@ -41,9 +41,9 @@ class ChatService {
     return prisma.message.findMany({
       where: { conversationId },
       include: {
-        sender: { select: { id: true, name: true } }
+        sender: { select: { id: true, name: true } },
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: "asc" },
     });
   }
 
@@ -59,15 +59,19 @@ class ChatService {
       // Or Raw Query.
       const existingConvs = await prisma.conversation.findMany({
         where: {
-          participants: { every: { id: { in: [userId, recipientId] } } }
+          participants: { every: { id: { in: [userId, recipientId] } } },
           // Warning: 'every' means ALL participants must be in list.
           // If there is a group chat with 3 people, this might match if all 3 are in list.
           // But for 1:1, we want size=2.
         },
-        include: { participants: true }
+        include: { participants: true },
       });
 
-      const strictMatch = existingConvs.find(c => c.participants.length === 2 && c.participants.some(p => p.id === recipientId));
+      const strictMatch = existingConvs.find(
+        (c) =>
+          c.participants.length === 2 &&
+          c.participants.some((p) => p.id === recipientId)
+      );
 
       if (strictMatch) {
         targetConvId = strictMatch.id;
@@ -76,16 +80,16 @@ class ChatService {
         const newConv = await prisma.conversation.create({
           data: {
             participants: {
-              connect: [{ id: userId }, { id: recipientId }]
+              connect: [{ id: userId }, { id: recipientId }],
             },
-            lastMessageAt: new Date()
-          }
+            lastMessageAt: new Date(),
+          },
         });
         targetConvId = newConv.id;
       }
     }
 
-    if (!targetConvId) throw new Error('Recipient or Conversation ID required');
+    if (!targetConvId) throw new Error("Recipient or Conversation ID required");
 
     // Create Message
     const message = await prisma.message.create({
@@ -93,15 +97,15 @@ class ChatService {
         content,
         conversationId: targetConvId,
         senderId: userId,
-        status: 'sent'
+        status: "sent",
       },
-      include: { sender: { select: { id: true, name: true } } }
+      include: { sender: { select: { id: true, name: true } } },
     });
 
     // Update Conversation
     await prisma.conversation.update({
       where: { id: targetConvId },
-      data: { lastMessageAt: new Date() }
+      data: { lastMessageAt: new Date() },
     });
 
     // Real-time Emission
@@ -109,28 +113,28 @@ class ChatService {
       // Fetch conversation participants for notification
       const conversation = await prisma.conversation.findUnique({
         where: { id: targetConvId },
-        include: { participants: { select: { id: true } } }
+        include: { participants: { select: { id: true } } },
       });
 
       const io = getIO();
 
       if (conversation && conversation.participants) {
-        conversation.participants.forEach(p => {
+        conversation.participants.forEach((p) => {
           // Emit ONLY to recipients, NOT the sender
           if (p.id !== userId) {
             // Emit to user's room
-            io.to(p.id.toString()).emit('new_message', message);
+            io.to(p.id.toString()).emit("new_message", message);
 
-            io.to(p.id.toString()).emit('conversation_updated', {
+            io.to(p.id.toString()).emit("conversation_updated", {
               id: targetConvId,
               lastMessageAt: message.createdAt,
-              lastMessagePreview: message.content
+              lastMessagePreview: message.content,
             });
           }
         });
       }
     } catch (error) {
-      console.error('Socket Emission Failed:', error.message);
+      console.error("Socket Emission Failed:", error.message);
     }
 
     return message;
@@ -140,35 +144,41 @@ class ChatService {
     // Check existence first
     const existingConvs = await prisma.conversation.findMany({
       where: {
-        participants: { every: { id: { in: [userId, recipientId] } } }
+        participants: { every: { id: { in: [userId, recipientId] } } },
       },
-      include: { participants: true }
+      include: { participants: true },
     });
-    const strictMatch = existingConvs.find(c => c.participants.length === 2 && c.participants.some(p => p.id === recipientId));
+    const strictMatch = existingConvs.find(
+      (c) =>
+        c.participants.length === 2 &&
+        c.participants.some((p) => p.id === recipientId)
+    );
     if (strictMatch) {
       return {
         ...strictMatch,
-        participantIds: strictMatch.participants.map(p => p.id)
+        participantIds: strictMatch.participants.map((p) => p.id),
       };
     }
 
     const newConv = await prisma.conversation.create({
       data: {
         participants: { connect: [{ id: userId }, { id: recipientId }] },
-        lastMessageAt: new Date()
+        lastMessageAt: new Date(),
       },
-      include: { participants: true }
+      include: { participants: true },
     });
 
     const result = {
       ...newConv,
-      participantIds: newConv.participants.map(p => p.id)
+      participantIds: newConv.participants.map((p) => p.id),
     };
 
     try {
       const io = getIO();
-      io.to(recipientId.toString()).emit('conversation_created', result);
-    } catch (e) { console.error(e); }
+      io.to(recipientId.toString()).emit("conversation_created", result);
+    } catch (e) {
+      console.error(e);
+    }
 
     return result;
   }
@@ -180,16 +190,16 @@ class ChatService {
       where: {
         conversationId: conversationId,
         senderId: { not: userId },
-        status: { not: 'read' }
+        status: { not: "read" },
       },
       data: {
         readAt: new Date(),
-        status: 'read'
-      }
+        status: "read",
+      },
     });
 
     if (result.count > 0) {
-      this._emitStatusUpdate(conversationId, 'read', userId); // userId = who read it
+      this._emitStatusUpdate(conversationId, "read", userId); // userId = who read it
     }
     return result;
   }
@@ -201,16 +211,16 @@ class ChatService {
       where: {
         conversationId: conversationId,
         senderId: { not: userId },
-        status: 'sent'
+        status: "sent",
       },
       data: {
         deliveredAt: new Date(),
-        status: 'delivered'
-      }
+        status: "delivered",
+      },
     });
 
     if (result.count > 0) {
-      this._emitStatusUpdate(conversationId, 'delivered', userId);
+      this._emitStatusUpdate(conversationId, "delivered", userId);
     }
     return result;
   }
@@ -219,30 +229,32 @@ class ChatService {
     try {
       const conversation = await prisma.conversation.findUnique({
         where: { id: conversationId },
-        include: { participants: { select: { id: true } } }
+        include: { participants: { select: { id: true } } },
       });
       const io = getIO();
-      conversation.participants.forEach(p => {
+      conversation.participants.forEach((p) => {
         // Notify everyone (Sender needs to know it was read/delivered)
         // Recipient needs to know? Maybe for syncing devices.
-        io.to(p.id.toString()).emit('message_status_update', {
+        io.to(p.id.toString()).emit("message_status_update", {
           conversationId,
           status: newStatus,
-          actorId // who performed the action (reader/receiver)
+          actorId, // who performed the action (reader/receiver)
         });
       });
-    } catch (e) { console.error('Socket Error statusUpdate', e); }
+    } catch (e) {
+      console.error("Socket Error statusUpdate", e);
+    }
   }
 
   async getUnreadCount(userId) {
     return prisma.message.count({
       where: {
         conversation: {
-          participants: { some: { id: userId } }
+          participants: { some: { id: userId } },
         },
         senderId: { not: userId },
-        readAt: null
-      }
+        readAt: null,
+      },
     });
   }
 }

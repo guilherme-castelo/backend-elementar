@@ -100,7 +100,11 @@ async function main() {
 
   const adminRole = await prisma.role.upsert({
     where: { name: "Admin" },
-    update: {},
+    update: {
+      permissions: {
+        set: allPermissions.map((p) => ({ id: p.id })),
+      },
+    },
     create: {
       name: "Admin",
       description: "Acesso total ao sistema",
@@ -126,7 +130,11 @@ async function main() {
 
   const userRole = await prisma.role.upsert({
     where: { name: "User" },
-    update: {},
+    update: {
+      permissions: {
+        set: basicPermissions.map((p) => ({ id: p.id })),
+      },
+    },
     create: {
       name: "User",
       description: "Usuário padrão do sistema",
@@ -150,7 +158,11 @@ async function main() {
 
   await prisma.role.upsert({
     where: { name: "Manager" },
-    update: {},
+    update: {
+      permissions: {
+        set: managerPermissions.map((p) => ({ id: p.id })),
+      },
+    },
     create: {
       name: "Manager",
       description: "Gestor de RH e Operações",
@@ -170,14 +182,14 @@ async function main() {
     },
   });
 
-  const hashedPassword = await bcrypt.hash("123456", 10);
+  const hashedPassword = await bcrypt.hash("admin", 10);
 
   const adminUser = await prisma.user.upsert({
-    where: { email: "admin@elementar.com" },
+    where: { email: "admin@empresa.test" },
     update: { roleId: adminRole.id }, // Ensure admin has role
     create: {
       name: "Administrador",
-      email: "admin@elementar.com",
+      email: "admin@empresa.test",
       password: hashedPassword,
       companyId: company.id,
       roleId: adminRole.id,
