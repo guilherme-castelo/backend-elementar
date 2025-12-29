@@ -39,11 +39,16 @@ class EmployeesService {
     const payload = {
       ...data,
       companyId: parseInt(data.companyId),
-      dataAdmissao: new Date(data.dataAdmissao),
+      // If dataAdmissao is provided, use it, otherwise valid date (now)
+      dataAdmissao: data.dataAdmissao
+        ? new Date(data.dataAdmissao)
+        : new Date(),
       dataDemissao: data.dataDemissao ? new Date(data.dataDemissao) : null,
+      // If cpf is empty string or null, set to null to avoid unique constraint violation on ""
+      cpf: data.cpf ? data.cpf : null,
     };
     const created = await prisma.employee.create({ data: payload });
-    
+
     // Auto-link pending meals
     await mealsService.linkEmployeeMeals(created);
 
@@ -60,7 +65,7 @@ class EmployeesService {
 
     const updated = await prisma.employee.update({
       where: { id: parseInt(id) },
-      data: payload
+      data: payload,
     });
 
     // Auto-link pending meals (in case matricula changed or was fixed)

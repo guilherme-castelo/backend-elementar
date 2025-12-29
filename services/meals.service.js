@@ -198,8 +198,29 @@ class MealsService {
       if (!matricula) errors.push("Matrícula obrigatória");
       if (!dateStr) errors.push("Data obrigatória");
 
-      const dateObj = new Date(dateStr);
-      if (isNaN(dateObj.getTime())) errors.push("Data inválida");
+      // Robust Date Parsing
+      let dateObj;
+      // Regex for DD/MM/YYYY or DD-MM-YYYY
+      const brDateRegex = /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/;
+      const match = dateStr ? dateStr.toString().match(brDateRegex) : null;
+
+      if (match) {
+        // Parse as DD/MM/YYYY => YYYY-MM-DD for constructor
+        // Month is 0-indexed in Date(y, m, d) but we want string for ISO parsing or constructor.
+        // Actually, just new Date(y, m-1, d) is safest.
+        dateObj = new Date(
+          parseInt(match[3]),
+          parseInt(match[2]) - 1,
+          parseInt(match[1])
+        );
+      } else {
+        // Fallback to standard ISO Date (YYYY-MM-DD)
+        dateObj = new Date(dateStr);
+      }
+
+      if (!dateObj || isNaN(dateObj.getTime())) {
+        errors.push("Data inválida. Use DD/MM/YYYY ou YYYY-MM-DD");
+      }
 
       if (errors.length > 0) {
         invalid.push({ row, reason: errors.join(", ") });
