@@ -239,12 +239,14 @@ model Meal {
   periodStart DateTime?
   periodEnd   DateTime?
 
-  employeeId Int
-  employee   Employee @relation(fields: [employeeId], references: [id])
+  employeeId Int?
+  employee   Employee? @relation(fields: [employeeId], references: [id])
 
   // Snapshots for history (redundant but safe for reporting if generic employee changes)
+  matriculaSnapshot      String  @default("") // Required in logic, default empty for migration safety if needed
   employeeNameSnapshot   String?
   employeeSectorSnapshot String?
+  status                 String  @default("LINKED") // LINKED, PENDING_LINK
 
   companyId Int
   company   Company @relation(fields: [companyId], references: [id])

@@ -50,6 +50,18 @@ router.use(authGuard);
  */
 router.get("/", checkPermission("meal:read"), controller.getAll);
 router.post("/", checkPermission("meal:create"), controller.register);
+router.post(
+  "/analyze",
+  checkPermission("meal:create"),
+  controller.analyzeImport
+);
+router.post("/import", checkPermission("meal:create"), controller.importBulk);
+router.get(
+  "/pending-count",
+  checkPermission("meal:read"),
+  controller.getPendingCount
+);
+router.get("/pending", checkPermission("meal:read"), controller.getPending);
 
 /**
  * @swagger

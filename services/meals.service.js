@@ -1,4 +1,4 @@
-const prisma = require('../utils/prisma');
+const prisma = require("../utils/prisma");
 
 class MealsService {
   // Helper for period logic (keeping same range logic 26th-25th)
@@ -37,24 +37,30 @@ class MealsService {
 
       where.date = {
         gte: startOfDay,
-        lte: endOfDay
+        lte: endOfDay,
       };
     }
 
     const meals = await prisma.meal.findMany({
       where,
       include: { employee: true },
-      orderBy: { date: 'desc' }
+      orderBy: { date: "desc" },
     });
 
     // Flatten response for Frontend Interface (IMeal) compatibility
-    return meals.map(meal => ({
+    return meals.map((meal) => ({
       ...meal,
       // Priority: Snapshot -> Employee Relationship -> Fallback
       // Frontend expects: sector, employeeName, employeeMatricula at root
-      sector: meal.employeeSectorSnapshot || (meal.employee ? meal.employee.setor : ''),
-      employeeName: meal.employeeNameSnapshot || (meal.employee ? `${meal.employee.firstName} ${meal.employee.lastName}` : ''),
-      employeeMatricula: meal.employee ? meal.employee.matricula : '',
+      sector:
+        meal.employeeSectorSnapshot ||
+        (meal.employee ? meal.employee.setor : ""),
+      employeeName:
+        meal.employeeNameSnapshot ||
+        (meal.employee
+          ? `${meal.employee.firstName} ${meal.employee.lastName}`
+          : ""),
+      employeeMatricula: meal.employee ? meal.employee.matricula : "",
       // Ensure date is string if needed, but Prisma returns Date objects usually.
       // Serialization handles it, but let's be safe if needed.
     }));
@@ -64,8 +70,10 @@ class MealsService {
     const { employeeId, date, companyId } = data;
 
     // Fetch employee for snapshots
-    const employee = await prisma.employee.findUnique({ where: { id: parseInt(employeeId) } });
-    if (!employee) throw new Error('Employee not found');
+    const employee = await prisma.employee.findUnique({
+      where: { id: parseInt(employeeId) },
+    });
+    if (!employee) throw new Error("Employee not found");
 
     const dateObj = new Date(date);
 
@@ -77,26 +85,30 @@ class MealsService {
       mealDate.setHours(0, 0, 0, 0);
 
       if (demissao <= mealDate) {
-        throw new Error('Cannot register meal: Employee is dismissed prior to or on this date.');
+        throw new Error(
+          "Cannot register meal: Employee is dismissed prior to or on this date."
+        );
       }
     }
 
     // Check Duplicate (One per day)
-    const startOfDay = new Date(dateObj); startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(dateObj); endOfDay.setHours(23, 59, 59, 999);
+    const startOfDay = new Date(dateObj);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(dateObj);
+    endOfDay.setHours(23, 59, 59, 999);
 
     const existing = await prisma.meal.findFirst({
       where: {
         employeeId: parseInt(employeeId),
         date: {
           gte: startOfDay,
-          lte: endOfDay
-        }
-      }
+          lte: endOfDay,
+        },
+      },
     });
 
     if (existing) {
-      throw new Error('Meal already exists for this employee on this date.');
+      throw new Error("Meal already exists for this employee on this date.");
     }
 
     const { periodStart, periodEnd } = this._getPeriod(dateObj);
@@ -110,13 +122,221 @@ class MealsService {
         periodStart,
         periodEnd,
         employeeNameSnapshot: `${employee.firstName} ${employee.lastName}`,
-        employeeSectorSnapshot: employee.setor || 'N/A'
-      }
+        employeeSectorSnapshot: employee.setor || "N/A",
+      },
     });
   }
 
   async delete(id) {
     return prisma.meal.delete({ where: { id: parseInt(id) } });
+  }
+
+  async countPending(companyId) {
+    return prisma.meal.count({
+      where: {
+        companyId: parseInt(companyId),
+        status: "PENDING_LINK",
+      },
+    });
+  }
+
+  async getPendingMeals(companyId) {
+    return prisma.meal.findMany({
+      where: {
+        companyId: parseInt(companyId),
+        status: "PENDING_LINK",
+      },
+      orderBy: {
+        date: "desc",
+      },
+    });
+  }
+
+  /**
+   * Links pending meals to a newly created/updated employee based on matricula.
+   */
+  async linkEmployeeMeals(employee) {
+    const { id, matricula, firstName, lastName } = employee;
+
+    // Update all pending meals with this matricula
+    const result = await prisma.meal.updateMany({
+      where: {
+        matriculaSnapshot: matricula,
+        status: "PENDING_LINK",
+      },
+      data: {
+        employeeId: id,
+        status: "LINKED",
+        employeeNameSnapshot: `${firstName} ${lastName}`.trim(),
+      },
+    });
+
+    return result.count;
+  }
+
+  async analyzeBatch(data, companyId) {
+    // 1. Fetch available employees for lookup
+    const employees = await prisma.employee.findMany({
+      where: { companyId: parseInt(companyId) },
+      select: {
+        id: true,
+        matricula: true,
+        firstName: true,
+        lastName: true,
+        setor: true,
+        dataDemissao: true,
+      },
+    });
+
+    const employeeMap = new Map(employees.map((e) => [e.matricula, e]));
+    const valid = [];
+    const invalid = [];
+    const missingEmployee = [];
+
+    // 2. Process each row
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      const matricula = row.matricula ? row.matricula.toString().trim() : "";
+      const dateStr = row.date || row.dataRefeicao; // Support both keys
+      const errors = [];
+
+      // Basic Validation
+      if (!matricula) errors.push("Matrícula obrigatória");
+      if (!dateStr) errors.push("Data obrigatória");
+
+      const dateObj = new Date(dateStr);
+      if (isNaN(dateObj.getTime())) errors.push("Data inválida");
+
+      if (errors.length > 0) {
+        invalid.push({ row, reason: errors.join(", ") });
+        continue;
+      }
+
+      // Check Employee
+      const employee = employeeMap.get(matricula);
+
+      // Check Dismissal (if employee exists)
+      if (employee && employee.dataDemissao) {
+        const demissao = new Date(employee.dataDemissao);
+        demissao.setHours(0, 0, 0, 0);
+        const mealDate = new Date(dateObj);
+        mealDate.setHours(0, 0, 0, 0);
+        if (demissao <= mealDate) {
+          invalid.push({ row, reason: "Funcionário demitido nesta data" });
+          continue;
+        }
+      }
+
+      // Check Duplicate (Database) - Performance warning for loop, but OK for MVP < 500 rows
+      const startOfDay = new Date(dateObj);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(dateObj);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      // We check DB duplicates regardless of employee existence (by matriculaSnapshot if needed, but currently schema doesn't strict check unique for missing employees easily without complex query)
+      // For now, check duplicate only if Linked. If Orphan, we might risk dupes or need specific check.
+      // Let's rely on EmployeeId check for linked, and skip for orphan for simplicity unless criticial.
+      if (employee) {
+        const existing = await prisma.meal.findFirst({
+          where: {
+            employeeId: employee.id,
+            date: { gte: startOfDay, lte: endOfDay },
+          },
+        });
+        if (existing) {
+          invalid.push({
+            row,
+            reason: "Refeição já registrada para este funcionário nesta data",
+          });
+          continue;
+        }
+      }
+
+      // Categorize
+      const cleanRow = {
+        matricula,
+        date: dateObj,
+        price: row.price || row.valor || 3.0, // Default or from file
+      };
+
+      if (employee) {
+        valid.push({
+          ...cleanRow,
+          employeeName: `${employee.firstName} ${employee.lastName}`,
+          linkStatus: "LINKED",
+        });
+      } else {
+        missingEmployee.push({ ...cleanRow, linkStatus: "PENDING_LINK" });
+      }
+    }
+
+    return {
+      summary: {
+        total: data.length,
+        valid: valid.length,
+        missingEmployee: missingEmployee.length,
+        invalid: invalid.length,
+      },
+      valid,
+      missingEmployee,
+      invalid,
+    };
+  }
+
+  async importBulk(records, companyId) {
+    const results = [];
+
+    // Optimizing fetching again might be safer to ensure state hasn't changed,
+    // or rely on frontend passing reliable data.
+    // We will do a fresh lookup for safety.
+    const employees = await prisma.employee.findMany({
+      where: { companyId: parseInt(companyId) },
+      select: {
+        id: true,
+        matricula: true,
+        firstName: true,
+        lastName: true,
+        setor: true,
+      },
+    });
+    const employeeMap = new Map(employees.map((e) => [e.matricula, e]));
+
+    for (const record of records) {
+      try {
+        const employee = employeeMap.get(record.matricula);
+        const dateObj = new Date(record.date);
+        const { periodStart, periodEnd } = this._getPeriod(dateObj);
+
+        await prisma.meal.create({
+          data: {
+            companyId: parseInt(companyId),
+            date: dateObj,
+            price: record.price || 3.0,
+            periodStart,
+            periodEnd,
+
+            // Linkage Logic
+            employeeId: employee ? employee.id : null,
+            status: employee ? "LINKED" : "PENDING_LINK",
+
+            // Snapshots
+            matriculaSnapshot: record.matricula,
+            employeeNameSnapshot: employee
+              ? `${employee.firstName} ${employee.lastName}`
+              : record.employeeNameSnapshot || "Desconhecido",
+            employeeSectorSnapshot: employee ? employee.setor : "N/A",
+          },
+        });
+        results.push({ success: true, matricula: record.matricula });
+      } catch (err) {
+        results.push({
+          success: false,
+          matricula: record.matricula,
+          error: err.message,
+        });
+      }
+    }
+    return results;
   }
 }
 

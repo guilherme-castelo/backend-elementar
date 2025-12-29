@@ -1,4 +1,5 @@
-const prisma = require('../utils/prisma');
+const prisma = require("../utils/prisma");
+const mealsService = require("./meals.service");
 
 class EmployeesService {
   async getAll(filters) {
@@ -21,13 +22,17 @@ class EmployeesService {
 
     const existing = await prisma.employee.findFirst({
       where: {
-        OR: checks
-      }
+        OR: checks,
+      },
     });
 
     if (existing) {
-      if (existing.matricula === data.matricula) throw new Error(`Employee with matricula ${data.matricula} already exists.`);
-      if (data.cpf && existing.cpf === data.cpf) throw new Error(`Employee with CPF ${data.cpf} already exists.`);
+      if (existing.matricula === data.matricula)
+        throw new Error(
+          `Employee with matricula ${data.matricula} already exists.`
+        );
+      if (data.cpf && existing.cpf === data.cpf)
+        throw new Error(`Employee with CPF ${data.cpf} already exists.`);
     }
 
     // Ensure dates are Dates
@@ -35,21 +40,33 @@ class EmployeesService {
       ...data,
       companyId: parseInt(data.companyId),
       dataAdmissao: new Date(data.dataAdmissao),
-      dataDemissao: data.dataDemissao ? new Date(data.dataDemissao) : null
+      dataDemissao: data.dataDemissao ? new Date(data.dataDemissao) : null,
     };
-    return prisma.employee.create({ data: payload });
+    const created = await prisma.employee.create({ data: payload });
+    
+    // Auto-link pending meals
+    await mealsService.linkEmployeeMeals(created);
+
+    return created;
   }
 
   async update(id, data) {
     const payload = { ...data };
     if (payload.companyId) payload.companyId = parseInt(payload.companyId);
-    if (payload.dataAdmissao) payload.dataAdmissao = new Date(payload.dataAdmissao);
-    if (payload.dataDemissao) payload.dataDemissao = new Date(payload.dataDemissao);
+    if (payload.dataAdmissao)
+      payload.dataAdmissao = new Date(payload.dataAdmissao);
+    if (payload.dataDemissao)
+      payload.dataDemissao = new Date(payload.dataDemissao);
 
-    return prisma.employee.update({
+    const updated = await prisma.employee.update({
       where: { id: parseInt(id) },
       data: payload
     });
+
+    // Auto-link pending meals (in case matricula changed or was fixed)
+    await mealsService.linkEmployeeMeals(updated);
+
+    return updated;
   }
 
   async delete(id) {
