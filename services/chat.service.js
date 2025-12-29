@@ -15,7 +15,12 @@ class ChatService {
       },
       include: {
         participants: {
-          select: { id: true, name: true, email: true, role: true },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: { select: { name: true } },
+          },
         },
         messages: {
           take: 1,

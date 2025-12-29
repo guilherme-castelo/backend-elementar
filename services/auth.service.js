@@ -100,10 +100,22 @@ class AuthService {
       { expiresIn: "1d" }
     );
 
-    const { password: _, ...userWithoutPassword } = user;
+    const { password, role, ...userScalars } = user;
+
+    // We reconstruct user with a lightweight role object (name only)
+    // or just return the role name as a scalar if that's what frontend prefers.
+    // Keeping 'role' object but without permissions to match generic expectations,
+    // or just returning userScalars + roleName.
+    // Looking at other services, they return flattened 'role: scalar' sometimes.
+    // Let's keep structure but clean it.
+
+    const cleanUser = {
+      ...userScalars,
+      role: role ? { id: role.id, name: role.name } : null,
+    };
 
     return {
-      user: userWithoutPassword,
+      user: cleanUser,
       token,
       permissions,
     };

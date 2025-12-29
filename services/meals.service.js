@@ -41,29 +41,22 @@ class MealsService {
       };
     }
 
-    const meals = await prisma.meal.findMany({
+    return prisma.meal.findMany({
       where,
-      include: { employee: true },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            setor: true,
+            matricula: true,
+            companyId: true, // Minimal fields
+          },
+        },
+      },
       orderBy: { date: "desc" },
     });
-
-    // Flatten response for Frontend Interface (IMeal) compatibility
-    return meals.map((meal) => ({
-      ...meal,
-      // Priority: Snapshot -> Employee Relationship -> Fallback
-      // Frontend expects: sector, employeeName, employeeMatricula at root
-      sector:
-        meal.employeeSectorSnapshot ||
-        (meal.employee ? meal.employee.setor : ""),
-      employeeName:
-        meal.employeeNameSnapshot ||
-        (meal.employee
-          ? `${meal.employee.firstName} ${meal.employee.lastName}`
-          : ""),
-      employeeMatricula: meal.employee ? meal.employee.matricula : "",
-      // Ensure date is string if needed, but Prisma returns Date objects usually.
-      // Serialization handles it, but let's be safe if needed.
-    }));
   }
 
   async create(data) {
@@ -168,6 +161,7 @@ class MealsService {
         employeeId: id,
         status: "LINKED",
         employeeNameSnapshot: `${firstName} ${lastName}`.trim(),
+        employeeSectorSnapshot: employee.setor,
       },
     });
 
