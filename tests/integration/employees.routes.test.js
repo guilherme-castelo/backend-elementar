@@ -43,6 +43,7 @@ describe("Integration: Employees Routes", () => {
       prismaMock.user.findUnique.mockResolvedValue(adminUser);
       prismaMock.employee.findFirst.mockResolvedValue(null); // Unique check
       prismaMock.employee.create.mockResolvedValue({ id: 2, name: "New" });
+      prismaMock.meal.updateMany.mockResolvedValue({ count: 0 });
 
       await request(app)
         .post("/employees")

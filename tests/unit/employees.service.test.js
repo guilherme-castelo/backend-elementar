@@ -27,6 +27,7 @@ describe("EmployeesService", () => {
       };
       prisma.employee.findFirst.mockResolvedValue(null);
       prisma.employee.create.mockResolvedValue({ id: 1, ...data });
+      prisma.meal.updateMany.mockResolvedValue({ count: 0 });
 
       await employeesService.create(data);
       expect(prisma.employee.create).toHaveBeenCalled();
