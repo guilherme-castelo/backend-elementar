@@ -1,4 +1,4 @@
-const specs = require("./src/config/swagger");
+const specs = require("../config/swagger");
 
 try {
   console.log("Reading generated Swagger JSON...");
