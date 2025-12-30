@@ -1,4 +1,4 @@
-const prisma = require('../utils/prisma');
+const prisma = require("../utils/prisma");
 
 class MealsRepository {
   async getAll(where) {
@@ -32,12 +32,22 @@ class MealsRepository {
     return prisma.meal.count({ where });
   }
 
+  async countByEmployeeId(employeeId) {
+    return prisma.meal.count({
+      where: { employeeId: parseInt(employeeId) },
+    });
+  }
+
   async findMany(args) {
     return prisma.meal.findMany(args);
   }
 
   async updateMany(where, data) {
     return prisma.meal.updateMany({ where, data });
+  }
+
+  async deleteMany(where) {
+    return prisma.meal.deleteMany({ where });
   }
 
   async findByEmployeeAndDate(employeeId, startOfDay, endOfDay) {
@@ -64,9 +74,9 @@ class MealsRepository {
         companyId: parseInt(companyId),
         date: {
           gte: startOfDay,
-          lte: endOfDay
-        }
-      }
+          lte: endOfDay,
+        },
+      },
     });
   }
 
@@ -77,9 +87,9 @@ class MealsRepository {
         companyId: parseInt(companyId),
         date: {
           gte: start,
-          lte: end
-        }
-      }
+          lte: end,
+        },
+      },
     });
   }
 }

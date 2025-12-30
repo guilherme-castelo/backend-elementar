@@ -85,11 +85,26 @@ router.post(
 );
 router.post("/import", checkPermission("meal:create"), controller.importBulk);
 router.get(
+  "/count/employee/:employeeId",
+  checkPermission("meal:read"),
+  controller.countByEmployee
+);
+router.get(
   "/pending-count",
   checkPermission("meal:read"),
   controller.getPendingCount
 );
 router.get("/pending", checkPermission("meal:read"), controller.getPending);
+router.delete(
+  "/pending/:matricula",
+  checkPermission("meal:delete"),
+  controller.deletePendingByMatricula
+);
+router.patch(
+  "/pending/:matricula/ignore",
+  checkPermission("meal:update"),
+  controller.toggleIgnorePending
+);
 
 /**
  * @swagger

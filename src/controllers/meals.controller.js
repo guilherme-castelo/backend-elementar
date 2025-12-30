@@ -37,11 +37,48 @@ exports.getPendingCount = async (req, res, next) => {
   }
 };
 
+exports.countByEmployee = async (req, res, next) => {
+  try {
+    const { employeeId } = req.params;
+    const count = await mealsService.countByEmployee(employeeId);
+    res.json({ count });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.getPending = async (req, res, next) => {
   try {
     const { companyId } = req.user || { companyId: 1 };
     const data = await mealsService.getPendingMeals(companyId);
     res.json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deletePendingByMatricula = async (req, res, next) => {
+  try {
+    const { companyId } = req.user || { companyId: 1 };
+    const { matricula } = req.params;
+    await mealsService.deletePendingByMatricula(matricula, companyId);
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.toggleIgnorePending = async (req, res, next) => {
+  try {
+    const { companyId } = req.user || { companyId: 1 };
+    const { matricula } = req.params;
+    const { ignore } = req.body; // Expecting boolean
+    await mealsService.toggleIgnorePendingByMatricula(
+      matricula,
+      companyId,
+      ignore
+    );
+    res.status(200).send();
   } catch (error) {
     next(error);
   }

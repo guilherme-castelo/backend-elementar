@@ -81,6 +81,7 @@ class DominioService {
           gte: startDate,
           lte: endDate,
         },
+        ignoredInExport: false,
       },
       include: {
         employee: true,

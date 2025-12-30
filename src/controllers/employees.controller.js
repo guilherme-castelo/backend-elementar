@@ -1,4 +1,4 @@
-const employeesService = require('../services/employees.service');
+const employeesService = require("../services/employees.service");
 
 exports.getAll = async (req, res, next) => {
   try {
@@ -12,7 +12,7 @@ exports.getAll = async (req, res, next) => {
 exports.getById = async (req, res, next) => {
   try {
     const data = await employeesService.getById(req.params.id);
-    if (!data) return res.status(404).json({ message: 'Employee not found' });
+    if (!data) return res.status(404).json({ message: "Employee not found" });
     res.json(data);
   } catch (error) {
     next(error);
@@ -39,7 +39,8 @@ exports.update = async (req, res, next) => {
 
 exports.delete = async (req, res, next) => {
   try {
-    await employeesService.delete(req.params.id);
+    const { mealsAction } = req.query;
+    await employeesService.delete(req.params.id, mealsAction);
     res.status(204).send();
   } catch (error) {
     next(error);

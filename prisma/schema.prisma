@@ -247,6 +247,7 @@ model Meal {
   employeeNameSnapshot   String?
   employeeSectorSnapshot String?
   status                 String  @default("LINKED") // LINKED, PENDING_LINK
+  ignoredInExport        Boolean @default(false)
 
   companyId Int
   company   Company @relation(fields: [companyId], references: [id])

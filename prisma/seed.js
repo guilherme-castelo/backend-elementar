@@ -47,6 +47,7 @@ async function main() {
       permissions: [
         { name: "Registrar Refeição", slug: "meal:create" },
         { name: "Ler Refeição", slug: "meal:read" },
+        { name: "Atualizar Refeição", slug: "meal:update" },
         { name: "Deletar Refeição", slug: "meal:delete" },
       ],
     },
@@ -158,6 +159,7 @@ async function main() {
     "employee:update",
     "meal:create",
     "meal:delete",
+    "meal:update",
     "integration:dominio",
   ];
   const managerPermissions = allPermissions.filter((p) =>

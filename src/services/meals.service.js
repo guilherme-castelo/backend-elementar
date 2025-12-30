@@ -144,6 +144,31 @@ class MealsService {
     });
   }
 
+  async countByEmployee(employeeId) {
+    return mealsRepository.countByEmployeeId(employeeId);
+  }
+
+  async deletePendingByMatricula(matricula, companyId) {
+    return mealsRepository.deleteMany({
+      companyId: parseInt(companyId),
+      matriculaSnapshot: matricula,
+      status: "PENDING_LINK",
+    });
+  }
+
+  async toggleIgnorePendingByMatricula(matricula, companyId, shouldIgnore) {
+    return mealsRepository.updateMany(
+      {
+        companyId: parseInt(companyId),
+        matriculaSnapshot: matricula,
+        status: "PENDING_LINK",
+      },
+      {
+        ignoredInExport: shouldIgnore,
+      }
+    );
+  }
+
   /**
    * Links pending meals to a newly created/updated employee based on matricula.
    */
