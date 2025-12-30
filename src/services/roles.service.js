@@ -31,12 +31,13 @@ class RolesService {
   }
 
   async update(id, data) {
-    const { permissionIds, ...rest } = data;
+    // Strip 'permissions' to avoid partial object issues if frontend sends it back
+    const { permissionIds, permissions, ...rest } = data;
     const payload = { ...rest };
 
     if (permissionIds && Array.isArray(permissionIds)) {
       payload.permissions = {
-        set: permissionIds.map((id) => ({ id })), // Replaces all existing relations
+        set: permissionIds.map((id) => ({ id: parseInt(id) })), // Replaces all existing relations
       };
     }
 

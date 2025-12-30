@@ -31,7 +31,7 @@ exports.create = async (companyId, { email, roleId }) => {
   });
 
   // Send Email
-  const inviteLink = `http://localhost:3000/setup-password?token=${token}`;
+  const inviteLink = `http://localhost:3333/setup-password?token=${token}`;
   await sendEmail(
     email,
     "Convite para Elementar",
