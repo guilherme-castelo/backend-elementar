@@ -23,6 +23,18 @@ router.use(authGuard);
  *     responses:
  *       200:
  *         description: List of conversations
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Conversation'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *   post:
  *     summary: Create a new conversation
  *     tags: [Chat]
@@ -44,6 +56,16 @@ router.use(authGuard);
  *     responses:
  *       201:
  *         description: Conversation created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Conversation'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get("/conversations", controller.getConversations);
 
@@ -64,6 +86,18 @@ router.get("/conversations", controller.getConversations);
  *     responses:
  *       200:
  *         description: List of messages
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Message'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *   post:
  *     summary: Send a message
  *     tags: [Chat]
@@ -86,6 +120,16 @@ router.get("/conversations", controller.getConversations);
  *     responses:
  *       201:
  *         description: Message sent
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Message'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get("/messages", controller.getMessages);
 router.post("/messages", controller.sendMessage);

@@ -25,6 +25,18 @@ router.use(authGuard);
  *     responses:
  *       200:
  *         description: List of tasks
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Task'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *   post:
  *     summary: Create a new task
  *     tags: [Tasks]
@@ -48,6 +60,22 @@ router.use(authGuard);
  *     responses:
  *       201:
  *         description: Task created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Task'
+ *       400:
+ *         description: Bad request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get("/", checkPermission("task:read"), controller.getAll);
 router.post("/", checkPermission("task:create"), controller.create);
@@ -69,8 +97,22 @@ router.post("/", checkPermission("task:create"), controller.create);
  *     responses:
  *       200:
  *         description: Task details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Task'
  *       404:
  *         description: Task not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *   put:
  *     summary: Update task
  *     tags: [Tasks]
@@ -132,6 +174,24 @@ router.post("/", checkPermission("task:create"), controller.create);
  *     responses:
  *       200:
  *         description: Task deleted
+ *       404:
+ *         description: Task not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Forbidden (No permission)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get("/:id", checkPermission("task:read"), controller.getOne);
 router.put("/:id", checkPermission("task:update"), controller.update);

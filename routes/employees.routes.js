@@ -25,6 +25,18 @@ router.use(authGuard);
  *     responses:
  *       200:
  *         description: List of employees
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Employee'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *   post:
  *     summary: Create a new employee
  *     tags: [Employees]
@@ -47,6 +59,16 @@ router.use(authGuard);
  *     responses:
  *       201:
  *         description: Employee created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Employee'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get("/", checkPermission("employee:read"), controller.getAll);
 router.post("/", checkPermission("employee:create"), controller.create);
@@ -68,8 +90,22 @@ router.post("/", checkPermission("employee:create"), controller.create);
  *     responses:
  *       200:
  *         description: Employee details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Employee'
  *       404:
  *         description: Employee not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *   put:
  *     summary: Update employee
  *     tags: [Employees]
@@ -109,6 +145,18 @@ router.post("/", checkPermission("employee:create"), controller.create);
  *     responses:
  *       200:
  *         description: Employee deleted
+ *       404:
+ *         description: Employee not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get("/:id", checkPermission("employee:read"), controller.getById);
 router.put("/:id", checkPermission("employee:update"), controller.update);

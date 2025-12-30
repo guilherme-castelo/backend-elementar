@@ -28,6 +28,18 @@ router.get("/permissions", controller.getPermissions);
  *     responses:
  *       200:
  *         description: List of companies
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Company'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *   post:
  *     summary: Create a new company
  *     tags: [Companies]
@@ -49,6 +61,16 @@ router.get("/permissions", controller.getPermissions);
  *     responses:
  *       201:
  *         description: Company created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Company'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get("/", checkPermission("company:read"), controller.getAll);
 router.post("/", checkPermission("company:create"), controller.create);
@@ -70,8 +92,22 @@ router.post("/", checkPermission("company:create"), controller.create);
  *     responses:
  *       200:
  *         description: Company details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Company'
  *       404:
  *         description: Company not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *   put:
  *     summary: Update company
  *     tags: [Companies]
@@ -111,6 +147,18 @@ router.post("/", checkPermission("company:create"), controller.create);
  *     responses:
  *       200:
  *         description: Company deleted
+ *       404:
+ *         description: Company not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get("/:id", checkPermission("company:read"), controller.getById);
 router.put("/:id", checkPermission("company:update"), controller.update);
@@ -132,8 +180,20 @@ router.delete("/:id", checkPermission("company:delete"), controller.delete);
  *         schema:
  *           type: string
  *     responses:
- *       200:
- *         description: Company inactivated
+ *       204:
+ *         description: Company inactivated - No Content
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Company not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.patch(
   "/:id/inactivate",

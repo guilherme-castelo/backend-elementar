@@ -25,6 +25,18 @@ router.use(authGuard);
  *     responses:
  *       200:
  *         description: List of meals
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Meal'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *   post:
  *     summary: Register a meal
  *     tags: [Meals]
@@ -47,6 +59,22 @@ router.use(authGuard);
  *     responses:
  *       201:
  *         description: Meal registered
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Meal'
+ *       400:
+ *         description: Bad request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get("/", checkPermission("meal:read"), controller.getAll);
 router.post("/", checkPermission("meal:create"), controller.register);
@@ -80,6 +108,18 @@ router.get("/pending", checkPermission("meal:read"), controller.getPending);
  *     responses:
  *       200:
  *         description: Meal deleted
+ *       404:
+ *         description: Meal not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.delete("/:id", checkPermission("meal:delete"), controller.delete);
 
