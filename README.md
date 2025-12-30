@@ -25,10 +25,17 @@ O sistema foi projetado para resolver problemas de **segurança** e **escalabili
 
 ### Principais Funcionalidades
 
-- **RBAC Dinâmico**: Permissões não são hardcoded no código (exceto checagens). Elas residem no banco e podem ser criadas/atribuídas via API.
-- **Multi-Tenancy (Logico)**: Suporte a múltiplas empresas (`Companies`), com isolamento de dados por `companyId`.
-- **Integridade de Refeições**: Sistema de snapshots para garantir que o registro de uma refeição mantenha os dados do funcionário (setor/cargo) no momento do consumo, independente de mudanças futuras.
-- **Soft Delete**: Entidades como `User` e `Company` possuem inativação lógica (`isActive`), preservando integridade referencial.
+- **RBAC Dinâmico**: Permissões granulares (`feature:action`) gerenciadas via banco de dados.
+- **Multi-Tenancy**: Isolamento de dados por empresa (`companyId`), garantindo segurança entre tenants.
+- **Autenticação Segura**: JWT com expiração, Hashing de senha (Bcrypt) e Proteção contra injeção.
+- **Chat Real-time**: Comunicação instantânea via Socket.IO com persistência de mensagens.
+- **Gestão de Tarefas (Kanban)**: Criação, atribuição e acompanhamento de status de tarefas.
+- **Gestão de RH**: Cadastro de funcionários, admissão e relatórios.
+- **Refeitório Inteligente**:
+    - Registro diário com trava de duplicidade.
+    - Snapshots de dados (cargo/setor) no momento do consumo.
+    - Relatórios filtrados por período.
+- **Soft Delete**: Preservação de histórico para Auditoria (`isActive: false`).
 
 ---
 
@@ -147,18 +154,22 @@ Você também pode consultar a coleção do Postman (export disponível na pasta
 
 ### Gestão Corporativa
 
-- **Empresas** (`/companies`)
-  - `POST /`: Criar empresa.
-  - `PATCH /:id/inactivate`: Inativar empresa.
-- **Usuários** (`/users`)
-  - `POST /`: Criar usuário Admin/Gestor.
-  - `PATCH /:id/inactivate`: Inativar acesso.
+- **Empresas** (`/companies`): Gestão de tenants e inativação.
+- **Usuários** (`/users`): Criação de gestores/admins com atribuição de Roles.
+- **Funcionários** (`/employees`): Base de dados de RH para vínculo com refeições.
+
+### Operacional
+
+- **Tarefas** (`/tasks`): CRUD completo de atividades e atribuições.
+- **Chat** (`/chat`): Histórico de conversas e mensagens (WebSocket para real-time).
+- **Refeições** (`/meals`):
+  - `POST /`: Registrar consumo.
+  - `GET /`: Relatório por período.
 
 ### RBAC (Admin)
 
-- **Features** (`/features`): Gestão de módulos.
-- **Permissions** (`/permissions`): Gestão de ações possíveis.
-- **Roles** (`/roles`): Criação de perfis (ex: "RH", "Portaria") e vínculo com permissões.
+- **Features** (`/features`) & **Permissions** (`/permissions`): Controle de acesso granular.
+- **Roles** (`/roles`): Perfis de acesso customizáveis.
 
 ---
 
