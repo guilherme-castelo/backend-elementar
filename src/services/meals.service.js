@@ -1,5 +1,5 @@
 const mealsRepository = require("../repositories/meals.repository");
-const prisma = require("../utils/prisma"); // Keeping for other lookups if needed (e.g. Employee) or move Employee lookup to EmployeeRepo later. 
+const prisma = require("../utils/prisma"); // Keeping for other lookups if needed (e.g. Employee) or move Employee lookup to EmployeeRepo later.
 // Ideally we should use EmployeeRepository for employee lookups too, but focused on Meals for now.
 
 class MealsService {
@@ -41,6 +41,28 @@ class MealsService {
       };
     }
 
+    // Date Range Filtering (Custom)
+    if (query.date_gte || query.date_lte) {
+      // Only init where.date if not already set (precedence to exact date matching above, or merge?)
+      // If both provided, merge? Let's assume 'date' param takes precedence or handled separately.
+      // Usually they are mutually exclusive usage in this app.
+      if (!where.date) where.date = {};
+
+      if (query.date_gte) {
+        where.date.gte = new Date(query.date_gte);
+      }
+
+      if (query.date_lte) {
+        // Identify if it is simple Date string or ISO
+        // Frontend sends YYYY-MM-DD. We want end of that day.
+        const d = new Date(query.date_lte);
+        if (query.date_lte.indexOf("T") === -1) {
+          d.setUTCHours(23, 59, 59, 999);
+        }
+        where.date.lte = d;
+      }
+    }
+
     return mealsRepository.getAll(where);
   }
 
@@ -75,7 +97,11 @@ class MealsService {
     const endOfDay = new Date(dateObj);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const existing = await mealsRepository.findByEmployeeAndDate(employeeId, startOfDay, endOfDay);
+    const existing = await mealsRepository.findByEmployeeAndDate(
+      employeeId,
+      startOfDay,
+      endOfDay
+    );
 
     if (existing) {
       throw new Error("Meal already exists for this employee on this date.");
@@ -187,7 +213,11 @@ class MealsService {
         const brDateRegex = /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/;
         const match = dateStr.toString().match(brDateRegex);
         if (match) {
-          dateObj = new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]));
+          dateObj = new Date(
+            parseInt(match[3]),
+            parseInt(match[2]) - 1,
+            parseInt(match[1])
+          );
         } else {
           dateObj = new Date(dateStr);
         }
@@ -195,7 +225,8 @@ class MealsService {
 
       if (dateObj && !isNaN(dateObj.getTime())) {
         datesToQuery.push(dateObj);
-      } else if (dateStr) { // If dateStr existed but parsing failed
+      } else if (dateStr) {
+        // If dateStr existed but parsing failed
         errors.push("Data inválida. Use DD/MM/YYYY ou YYYY-MM-DD");
       }
 
@@ -211,16 +242,24 @@ class MealsService {
       maxDate = datesToQuery[datesToQuery.length - 1];
 
       // Adjust to start/end of days
-      const queryStart = new Date(minDate); queryStart.setHours(0, 0, 0, 0);
-      const queryEnd = new Date(maxDate); queryEnd.setHours(23, 59, 59, 999);
+      const queryStart = new Date(minDate);
+      queryStart.setHours(0, 0, 0, 0);
+      const queryEnd = new Date(maxDate);
+      queryEnd.setHours(23, 59, 59, 999);
 
-      const collisions = await mealsRepository.findCollisionsInRange(queryStart, queryEnd, parseInt(companyId));
+      const collisions = await mealsRepository.findCollisionsInRange(
+        queryStart,
+        queryEnd,
+        parseInt(companyId)
+      );
 
       // Build Map: "${employeeId}_${dateYYYYMMDD}"
-      collisions.forEach(m => {
+      collisions.forEach((m) => {
         if (m.employeeId) {
           const d = new Date(m.date);
-          const k = `${m.employeeId}_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`;
+          const k = `${
+            m.employeeId
+          }_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`;
           mealMap.add(k);
         }
       });
@@ -253,7 +292,9 @@ class MealsService {
       // Check Duplicate (Memory Map)
       if (employee) {
         const d = new Date(dateObj);
-        const k = `${employee.id}_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`;
+        const k = `${
+          employee.id
+        }_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`;
         if (mealMap.has(k)) {
           invalid.push({
             row,
