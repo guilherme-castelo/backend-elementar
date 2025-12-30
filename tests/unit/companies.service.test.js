@@ -1,8 +1,8 @@
 const { mockReset } = require("jest-mock-extended");
-jest.mock("../../utils/prisma");
+jest.mock("../../src/utils/prisma");
 
-const prisma = require("../../utils/prisma");
-const companiesService = require("../../services/companies.service");
+const prisma = require("../../src/utils/prisma");
+const companiesService = require("../../src/services/companies.service");
 
 describe("CompaniesService", () => {
   beforeEach(() => {

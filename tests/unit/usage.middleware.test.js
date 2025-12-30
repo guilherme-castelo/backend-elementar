@@ -1,7 +1,7 @@
 const { mockReset } = require("jest-mock-extended");
-jest.mock("../../utils/prisma");
-const prisma = require("../../utils/prisma");
-const checkUsage = require("../../middlewares/usage");
+jest.mock("../../src/utils/prisma");
+const prisma = require("../../src/utils/prisma");
+const checkUsage = require("../../src/middlewares/usage");
 const { mockRequest, mockResponse, mockNext } = require("../utils/httpMocks");
 
 describe("Usage Middleware", () => {

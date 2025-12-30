@@ -1,12 +1,12 @@
-const controller = require("../../../controllers/permissions.controller");
-const service = require("../../../services/permissions.service");
+const controller = require("../../../src/controllers/permissions.controller");
+const service = require("../../../src/services/permissions.service");
 const {
   mockRequest,
   mockResponse,
   mockNext,
 } = require("../../utils/httpMocks");
 
-jest.mock("../../../services/permissions.service", () => ({
+jest.mock("../../../src/services/permissions.service", () => ({
   create: jest.fn(),
   getAll: jest.fn(),
   update: jest.fn(),

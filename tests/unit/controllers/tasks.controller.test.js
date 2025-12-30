@@ -1,12 +1,12 @@
-const controller = require("../../../controllers/tasks.controller");
-const service = require("../../../services/tasks.service");
+const controller = require("../../../src/controllers/tasks.controller");
+const service = require("../../../src/services/tasks.service");
 const {
   mockRequest,
   mockResponse,
   mockNext,
 } = require("../../utils/httpMocks");
 
-jest.mock("../../../services/tasks.service", () => ({
+jest.mock("../../../src/services/tasks.service", () => ({
   create: jest.fn(),
   getAll: jest.fn(),
   getById: jest.fn(),

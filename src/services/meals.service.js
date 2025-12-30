@@ -1,4 +1,6 @@
-const prisma = require("../utils/prisma");
+const mealsRepository = require("../repositories/meals.repository");
+const prisma = require("../utils/prisma"); // Keeping for other lookups if needed (e.g. Employee) or move Employee lookup to EmployeeRepo later. 
+// Ideally we should use EmployeeRepository for employee lookups too, but focused on Meals for now.
 
 class MealsService {
   // Helper for period logic (keeping same range logic 26th-25th)
@@ -30,8 +32,6 @@ class MealsService {
 
     // Date Filtering (Specific Day)
     if (date) {
-      // Create UTC range for the provided date string (YYYY-MM-DD)
-      // Assuming 'date' comes as 'YYYY-MM-DD' from frontend.
       const startOfDay = new Date(`${date}T00:00:00.000Z`);
       const endOfDay = new Date(`${date}T23:59:59.999Z`);
 
@@ -41,28 +41,13 @@ class MealsService {
       };
     }
 
-    return prisma.meal.findMany({
-      where,
-      include: {
-        employee: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            setor: true,
-            matricula: true,
-            companyId: true, // Minimal fields
-          },
-        },
-      },
-      orderBy: { date: "desc" },
-    });
+    return mealsRepository.getAll(where);
   }
 
   async create(data) {
     const { employeeId, date, companyId } = data;
 
-    // Fetch employee for snapshots
+    // Fetch employee for snapshots - Ideally move to EmployeeRepository
     const employee = await prisma.employee.findUnique({
       where: { id: parseInt(employeeId) },
     });
@@ -90,15 +75,7 @@ class MealsService {
     const endOfDay = new Date(dateObj);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const existing = await prisma.meal.findFirst({
-      where: {
-        employeeId: parseInt(employeeId),
-        date: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
-      },
-    });
+    const existing = await mealsRepository.findByEmployeeAndDate(employeeId, startOfDay, endOfDay);
 
     if (existing) {
       throw new Error("Meal already exists for this employee on this date.");
@@ -106,35 +83,31 @@ class MealsService {
 
     const { periodStart, periodEnd } = this._getPeriod(dateObj);
 
-    return prisma.meal.create({
-      data: {
-        employeeId: parseInt(employeeId),
-        companyId: parseInt(companyId) || employee.companyId,
-        date: dateObj,
-        price: 3.0, // Hardcoded in old controller? Should be dynamic probably later.
-        periodStart,
-        periodEnd,
-        employeeNameSnapshot: `${employee.firstName} ${employee.lastName}`,
-        employeeSectorSnapshot: employee.setor || "N/A",
-      },
+    return mealsRepository.create({
+      employeeId: parseInt(employeeId),
+      companyId: parseInt(companyId) || employee.companyId,
+      date: dateObj,
+      price: 3.0, // Hardcoded in old controller? Should be dynamic probably later.
+      periodStart,
+      periodEnd,
+      employeeNameSnapshot: `${employee.firstName} ${employee.lastName}`,
+      employeeSectorSnapshot: employee.setor || "N/A",
     });
   }
 
   async delete(id) {
-    return prisma.meal.delete({ where: { id: parseInt(id) } });
+    return mealsRepository.delete(id);
   }
 
   async countPending(companyId) {
-    return prisma.meal.count({
-      where: {
-        companyId: parseInt(companyId),
-        status: "PENDING_LINK",
-      },
+    return mealsRepository.count({
+      companyId: parseInt(companyId),
+      status: "PENDING_LINK",
     });
   }
 
   async getPendingMeals(companyId) {
-    return prisma.meal.findMany({
+    return mealsRepository.findMany({
       where: {
         companyId: parseInt(companyId),
         status: "PENDING_LINK",
@@ -152,18 +125,18 @@ class MealsService {
     const { id, matricula, firstName, lastName } = employee;
 
     // Update all pending meals with this matricula
-    const result = await prisma.meal.updateMany({
-      where: {
+    const result = await mealsRepository.updateMany(
+      {
         matriculaSnapshot: matricula,
         status: "PENDING_LINK",
       },
-      data: {
+      {
         employeeId: id,
         status: "LINKED",
         employeeNameSnapshot: `${firstName} ${lastName}`.trim(),
         employeeSectorSnapshot: employee.setor,
-      },
-    });
+      }
+    );
 
     return result.count;
   }
@@ -187,40 +160,75 @@ class MealsService {
     const invalid = [];
     const missingEmployee = [];
 
-    // 2. Process each row
-    for (let i = 0; i < data.length; i++) {
-      const row = data[i];
+    // Pre-process dates to find range for bulk duplicate check
+    let minDate = null;
+    let maxDate = null;
+
+    // Simplified loop to extract dates first? Or parse in main loop?
+    // Let's stick to main loop but add a preliminary pass or handle logic differently.
+    // Actually, to fix N+1 we need to query BEFORE the main logic loop.
+    // BUT we need parsed dates.
+
+    // Let's parse all rows first.
+    const parsedRows = [];
+    const datesToQuery = [];
+
+    for (const row of data) {
       const matricula = row.matricula ? row.matricula.toString().trim() : "";
-      const dateStr = row.date || row.dataRefeicao; // Support both keys
+      const dateStr = row.date || row.dataRefeicao;
+      let dateObj = null;
       const errors = [];
 
-      // Basic Validation
+      // Basic validation
       if (!matricula) errors.push("Matrícula obrigatória");
       if (!dateStr) errors.push("Data obrigatória");
 
-      // Robust Date Parsing
-      let dateObj;
-      // Regex for DD/MM/YYYY or DD-MM-YYYY
-      const brDateRegex = /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/;
-      const match = dateStr ? dateStr.toString().match(brDateRegex) : null;
-
-      if (match) {
-        // Parse as DD/MM/YYYY => YYYY-MM-DD for constructor
-        // Month is 0-indexed in Date(y, m, d) but we want string for ISO parsing or constructor.
-        // Actually, just new Date(y, m-1, d) is safest.
-        dateObj = new Date(
-          parseInt(match[3]),
-          parseInt(match[2]) - 1,
-          parseInt(match[1])
-        );
-      } else {
-        // Fallback to standard ISO Date (YYYY-MM-DD)
-        dateObj = new Date(dateStr);
+      if (dateStr) {
+        const brDateRegex = /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/;
+        const match = dateStr.toString().match(brDateRegex);
+        if (match) {
+          dateObj = new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]));
+        } else {
+          dateObj = new Date(dateStr);
+        }
       }
 
-      if (!dateObj || isNaN(dateObj.getTime())) {
+      if (dateObj && !isNaN(dateObj.getTime())) {
+        datesToQuery.push(dateObj);
+      } else if (dateStr) { // If dateStr existed but parsing failed
         errors.push("Data inválida. Use DD/MM/YYYY ou YYYY-MM-DD");
       }
+
+      parsedRows.push({ row, matricula, dateObj, errors });
+    }
+
+    // Bulk Query
+    let mealMap = new Set();
+    if (datesToQuery.length > 0) {
+      // Calculate Min/Max
+      datesToQuery.sort((a, b) => a - b);
+      minDate = datesToQuery[0];
+      maxDate = datesToQuery[datesToQuery.length - 1];
+
+      // Adjust to start/end of days
+      const queryStart = new Date(minDate); queryStart.setHours(0, 0, 0, 0);
+      const queryEnd = new Date(maxDate); queryEnd.setHours(23, 59, 59, 999);
+
+      const collisions = await mealsRepository.findCollisionsInRange(queryStart, queryEnd, parseInt(companyId));
+
+      // Build Map: "${employeeId}_${dateYYYYMMDD}"
+      collisions.forEach(m => {
+        if (m.employeeId) {
+          const d = new Date(m.date);
+          const k = `${m.employeeId}_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`;
+          mealMap.add(k);
+        }
+      });
+    }
+
+    // 2. Process each row
+    for (const parsed of parsedRows) {
+      const { row, matricula, dateObj, errors } = parsed;
 
       if (errors.length > 0) {
         invalid.push({ row, reason: errors.join(", ") });
@@ -242,23 +250,11 @@ class MealsService {
         }
       }
 
-      // Check Duplicate (Database) - Performance warning for loop, but OK for MVP < 500 rows
-      const startOfDay = new Date(dateObj);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(dateObj);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      // We check DB duplicates regardless of employee existence (by matriculaSnapshot if needed, but currently schema doesn't strict check unique for missing employees easily without complex query)
-      // For now, check duplicate only if Linked. If Orphan, we might risk dupes or need specific check.
-      // Let's rely on EmployeeId check for linked, and skip for orphan for simplicity unless criticial.
+      // Check Duplicate (Memory Map)
       if (employee) {
-        const existing = await prisma.meal.findFirst({
-          where: {
-            employeeId: employee.id,
-            date: { gte: startOfDay, lte: endOfDay },
-          },
-        });
-        if (existing) {
+        const d = new Date(dateObj);
+        const k = `${employee.id}_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`;
+        if (mealMap.has(k)) {
           invalid.push({
             row,
             reason: "Refeição já registrada para este funcionário nesta data",
@@ -271,7 +267,7 @@ class MealsService {
       const cleanRow = {
         matricula,
         date: dateObj,
-        price: row.price || row.valor || 3.0, // Default or from file
+        price: row.price || row.valor || 3.0,
       };
 
       if (employee) {
@@ -301,9 +297,6 @@ class MealsService {
   async importBulk(records, companyId) {
     const results = [];
 
-    // Optimizing fetching again might be safer to ensure state hasn't changed,
-    // or rely on frontend passing reliable data.
-    // We will do a fresh lookup for safety.
     const employees = await prisma.employee.findMany({
       where: { companyId: parseInt(companyId) },
       select: {
@@ -322,25 +315,23 @@ class MealsService {
         const dateObj = new Date(record.date);
         const { periodStart, periodEnd } = this._getPeriod(dateObj);
 
-        await prisma.meal.create({
-          data: {
-            companyId: parseInt(companyId),
-            date: dateObj,
-            price: record.price || 3.0,
-            periodStart,
-            periodEnd,
+        await mealsRepository.create({
+          companyId: parseInt(companyId),
+          date: dateObj,
+          price: record.price || 3.0,
+          periodStart,
+          periodEnd,
 
-            // Linkage Logic
-            employeeId: employee ? employee.id : null,
-            status: employee ? "LINKED" : "PENDING_LINK",
+          // Linkage Logic
+          employeeId: employee ? employee.id : null,
+          status: employee ? "LINKED" : "PENDING_LINK",
 
-            // Snapshots
-            matriculaSnapshot: record.matricula,
-            employeeNameSnapshot: employee
-              ? `${employee.firstName} ${employee.lastName}`
-              : record.employeeNameSnapshot || "Desconhecido",
-            employeeSectorSnapshot: employee ? employee.setor : "N/A",
-          },
+          // Snapshots
+          matriculaSnapshot: record.matricula,
+          employeeNameSnapshot: employee
+            ? `${employee.firstName} ${employee.lastName}`
+            : record.employeeNameSnapshot || "Desconhecido",
+          employeeSectorSnapshot: employee ? employee.setor : "N/A",
         });
         results.push({ success: true, matricula: record.matricula });
       } catch (err) {

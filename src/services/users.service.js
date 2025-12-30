@@ -1,13 +1,13 @@
-const prisma = require('../utils/prisma');
+const usersRepository = require("../repositories/users.repository");
 const bcrypt = require('bcryptjs');
 
 class UsersService {
   async getAll() {
-    return prisma.user.findMany();
+    return usersRepository.getAll();
   }
 
   async getById(id) {
-    return prisma.user.findUnique({ where: { id: parseInt(id) } });
+    return usersRepository.getById(id);
   }
 
   async create(data) {
@@ -23,7 +23,7 @@ class UsersService {
     if (typeof payload.address === 'object') payload.address = JSON.stringify(payload.address);
     if (Array.isArray(payload.roles)) payload.roles = payload.roles.join(','); // or keep as string
 
-    return prisma.user.create({ data: payload });
+    return usersRepository.create(payload);
   }
 
   async update(id, data) {
@@ -37,13 +37,7 @@ class UsersService {
     if (typeof payload.address === 'object') payload.address = JSON.stringify(payload.address);
     if (Array.isArray(payload.roles)) payload.roles = payload.roles.join(',');
 
-    // Remove immutable or sensitive if not intended (like email if unique constraint)
-    // But allowing update for now.
-
-    const user = await prisma.user.update({
-      where: { id: parseInt(id) },
-      data: payload
-    });
+    const user = await usersRepository.update(id, payload);
 
     // Remove password from return
     const { password, ...rest } = user;
@@ -51,7 +45,7 @@ class UsersService {
   }
 
   async delete(id) {
-    return prisma.user.delete({ where: { id: parseInt(id) } });
+    return usersRepository.delete(id);
   }
 }
 

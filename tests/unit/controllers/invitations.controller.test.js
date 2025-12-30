@@ -1,8 +1,8 @@
-const controller = require("../../../controllers/invitations.controller");
-const service = require("../../../services/invitations.service");
+const controller = require("../../../src/controllers/invitations.controller");
+const service = require("../../../src/services/invitations.service");
 const { mockRequest, mockResponse, mockNext } = require("../../utils/httpMocks");
 
-jest.mock("../../../services/invitations.service", () => ({
+jest.mock("../../../src/services/invitations.service", () => ({
   create: jest.fn(),
   validateToken: jest.fn(),
   accept: jest.fn(),

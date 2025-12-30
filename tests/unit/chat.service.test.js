@@ -1,18 +1,18 @@
 const { mockReset } = require("jest-mock-extended");
 
 // Inline mock to be absolutely sure
-jest.mock("../../utils/socket", () => ({
+jest.mock("../../src/utils/socket", () => ({
   getIO: jest.fn().mockReturnValue({
     to: jest.fn().mockReturnThis(),
     emit: jest.fn(),
   }),
 }));
 
-jest.mock("../../utils/prisma");
+jest.mock("../../src/utils/prisma");
 
-const prisma = require("../../utils/prisma");
-const service = require("../../services/chat.service");
-const { getIO } = require("../../utils/socket");
+const prisma = require("../../src/utils/prisma");
+const service = require("../../src/services/chat.service");
+const { getIO } = require("../../src/utils/socket");
 
 describe("ChatService", () => {
   beforeEach(() => {

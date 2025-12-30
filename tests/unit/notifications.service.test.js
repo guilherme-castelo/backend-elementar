@@ -1,8 +1,8 @@
-const service = require("../../services/notifications.service");
-const prisma = require("../../utils/prisma");
+const service = require("../../src/services/notifications.service");
+const prisma = require("../../src/utils/prisma");
 const { mockReset } = require("jest-mock-extended");
 
-jest.mock("../../utils/prisma");
+jest.mock("../../src/utils/prisma");
 
 describe("NotificationsService", () => {
   beforeEach(() => mockReset(prisma));

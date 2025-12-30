@@ -1,11 +1,11 @@
 const request = require("supertest");
 const jwt = require("jsonwebtoken");
-const prismaMock = require("../../utils/prisma");
-const app = require("../../app");
+const prismaMock = require("../../src/utils/prisma");
+const app = require("../../src/app");
 const bcrypt = require("bcryptjs");
-const config = require("../../config/config");
+const config = require("../../src/config/config");
 
-jest.mock("../../utils/prisma");
+jest.mock("../../src/utils/prisma");
 
 // Explicit mocks for deps
 jest.mock("bcryptjs", () => ({

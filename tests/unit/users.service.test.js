@@ -1,9 +1,9 @@
 const { mockReset } = require("jest-mock-extended");
-jest.mock("../../utils/prisma");
+jest.mock("../../src/utils/prisma");
 jest.mock("bcryptjs"); // Keep local mock for bcrypt
 
-const prisma = require("../../utils/prisma");
-const usersService = require("../../services/users.service");
+const prisma = require("../../src/utils/prisma");
+const usersService = require("../../src/services/users.service");
 const bcrypt = require("bcryptjs");
 
 describe("UsersService", () => {

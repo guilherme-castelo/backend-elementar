@@ -1,9 +1,9 @@
 const request = require("supertest");
-const app = require("../../app");
+const app = require("../../src/app");
 const jwt = require("jsonwebtoken");
 const { mockReset } = require("jest-mock-extended");
-jest.mock("../../utils/prisma"); // Manual Mock
-const prismaMock = require("../../utils/prisma");
+jest.mock("../../src/utils/prisma"); // Manual Mock
+const prismaMock = require("../../src/utils/prisma");
 
 describe("SaaS Integration Flow", () => {
   beforeEach(() => {

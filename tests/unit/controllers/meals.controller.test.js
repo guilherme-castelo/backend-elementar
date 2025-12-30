@@ -1,12 +1,12 @@
-const controller = require("../../../controllers/meals.controller");
-const service = require("../../../services/meals.service");
+const controller = require("../../../src/controllers/meals.controller");
+const service = require("../../../src/services/meals.service");
 const {
   mockRequest,
   mockResponse,
   mockNext,
 } = require("../../utils/httpMocks");
 
-jest.mock("../../../services/meals.service", () => ({
+jest.mock("../../../src/services/meals.service", () => ({
   create: jest.fn(),
   getAll: jest.fn(),
   getById: jest.fn(),

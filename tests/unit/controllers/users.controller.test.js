@@ -1,12 +1,12 @@
-const usersController = require("../../../controllers/users.controller");
-const usersService = require("../../../services/users.service");
+const usersController = require("../../../src/controllers/users.controller");
+const usersService = require("../../../src/services/users.service");
 const {
   mockRequest,
   mockResponse,
   mockNext,
 } = require("../../utils/httpMocks");
 
-jest.mock("../../../services/users.service");
+jest.mock("../../../src/services/users.service");
 
 describe("UsersController", () => {
   let req, res, next;

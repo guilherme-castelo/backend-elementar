@@ -1,12 +1,12 @@
-const authController = require("../../../controllers/auth.controller");
-const authService = require("../../../services/auth.service");
+const authController = require("../../../src/controllers/auth.controller");
+const authService = require("../../../src/services/auth.service");
 const {
   mockRequest,
   mockResponse,
   mockNext,
 } = require("../../utils/httpMocks");
 
-jest.mock("../../../services/auth.service");
+jest.mock("../../../src/services/auth.service");
 
 describe("AuthController", () => {
   describe("login", () => {

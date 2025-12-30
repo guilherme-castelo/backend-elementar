@@ -1,9 +1,9 @@
 const request = require("supertest");
 const jwt = require("jsonwebtoken");
-jest.mock("../../utils/prisma");
+jest.mock("../../src/utils/prisma");
 
-const prismaMock = require("../../utils/prisma");
-const app = require("../../app");
+const prismaMock = require("../../src/utils/prisma");
+const app = require("../../src/app");
 
 describe("Integration: Companies Routes", () => {
   beforeEach(() => {

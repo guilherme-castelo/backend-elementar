@@ -1,12 +1,12 @@
-const controller = require("../../../controllers/roles.controller");
-const service = require("../../../services/roles.service");
+const controller = require("../../../src/controllers/roles.controller");
+const service = require("../../../src/services/roles.service");
 const {
   mockRequest,
   mockResponse,
   mockNext,
 } = require("../../utils/httpMocks");
 
-jest.mock("../../../services/roles.service");
+jest.mock("../../../src/services/roles.service");
 
 describe("RolesController", () => {
   let req, res, next;

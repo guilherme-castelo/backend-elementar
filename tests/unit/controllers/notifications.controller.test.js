@@ -1,12 +1,12 @@
-const controller = require("../../../controllers/notifications.controller");
-const service = require("../../../services/notifications.service");
+const controller = require("../../../src/controllers/notifications.controller");
+const service = require("../../../src/services/notifications.service");
 const {
   mockRequest,
   mockResponse,
   mockNext,
 } = require("../../utils/httpMocks");
 
-jest.mock("../../../services/notifications.service");
+jest.mock("../../../src/services/notifications.service");
 
 describe("NotificationsController", () => {
   let req, res, next;

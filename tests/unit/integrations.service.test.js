@@ -1,8 +1,8 @@
 const { mockReset } = require("jest-mock-extended");
-const prisma = require("../../utils/prisma");
-const dominioService = require("../../services/dominio.service");
+const prisma = require("../../src/utils/prisma");
+const dominioService = require("../../src/services/dominio.service");
 
-jest.mock("../../utils/prisma");
+jest.mock("../../src/utils/prisma");
 
 describe("DominioService", () => {
   beforeEach(() => {

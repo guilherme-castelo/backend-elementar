@@ -1,6 +1,6 @@
 const { mockReset } = require("jest-mock-extended");
 // Use manual mock
-jest.mock("../../utils/prisma");
+jest.mock("../../src/utils/prisma");
 
 // Explicit mocks for deps
 jest.mock("bcryptjs", () => ({
@@ -12,8 +12,8 @@ jest.mock("jsonwebtoken", () => ({
   verify: jest.fn(),
 }));
 
-const prisma = require("../../utils/prisma");
-const authService = require("../../services/auth.service");
+const prisma = require("../../src/utils/prisma");
+const authService = require("../../src/services/auth.service");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
