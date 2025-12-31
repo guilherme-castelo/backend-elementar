@@ -14,7 +14,7 @@ const options = {
     },
     servers: [
       {
-        url: "http://localhost:3333/api",
+        url: `${process.env.HOST || 'http://localhost:3000'}/api`,
         description: "Local Verification Server",
       },
     ],
