@@ -120,6 +120,12 @@ const authGuard = async (req, res, next) => {
       });
     }
 
+    // Sync req.user.companyId with the resolved context
+    // This allows controllers to use req.user.companyId reliably
+    if (contextCompanyId) {
+      req.user.companyId = contextCompanyId;
+    }
+
     const store = {
       userId: user.id,
       companyId: contextCompanyId,
