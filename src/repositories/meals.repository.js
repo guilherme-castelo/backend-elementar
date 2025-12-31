@@ -62,25 +62,6 @@ class MealsRepository {
     });
   }
 
-  // Single date collision check (legacy support if needed)
-  async findCollisions(date, companyId) {
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    return prisma.meal.findMany({
-      where: {
-        companyId: parseInt(companyId),
-        date: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
-      },
-    });
-  }
-
-  // Range collision check
   async findCollisionsInRange(start, end, companyId) {
     return prisma.meal.findMany({
       where: {
@@ -95,3 +76,4 @@ class MealsRepository {
 }
 
 module.exports = new MealsRepository();
+

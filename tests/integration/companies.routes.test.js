@@ -30,9 +30,11 @@ describe("Integration: Companies Routes", () => {
 
   it("should inactivate company", async () => {
     prismaMock.user.findUnique.mockResolvedValue(adminUser);
+    prismaMock.company.findUnique.mockResolvedValue({ id: 1, isActive: true });
     prismaMock.company.update.mockResolvedValue({});
     await request(app)
       .patch("/companies/1/inactivate")
+
       .set("Authorization", `Bearer ${token}`)
       .expect(204);
   });

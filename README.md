@@ -12,16 +12,19 @@ Este repositório contém o backend da aplicação Elementar, focado em gestão 
 2.  [Stack Tecnológica](#-stack-tecnológica)
 3.  [Instalação e Configuração](#-instalação-e-configuração)
 4.  [Segurança e RBAC](#-segurança-e-rbac)
-5.  [Documentação da API](#-documentação-da-api)
-6.  [Manual de Testes e Qualidade](#-manual-de-testes-e-qualidade)
-7.  [Guia de Desenvolvimento de Features](#-guia-de-desenvolvimento-de-features)
-8.  [Estrutura do Projeto](#-estrutura-do-projeto)
+5.  [Tratamento de Erros](#-tratamento-de-erros)
+6.  [Documentação da API](#-documentação-da-api)
+7.  [Manual de Testes e Qualidade](#-manual-de-testes-e-qualidade)
+8.  [Guia de Desenvolvimento de Features](#-guia-de-desenvolvimento-de-features)
+9.  [Estrutura do Projeto](#-estrutura-do-projeto)
 
 ---
 
 ## 🚀 Visão Geral e Arquitetura
 
 O sistema foi projetado para resolver problemas de **segurança** e **escalabilidade** na gestão de múltiplos módulos corporativos.
+
+> **Atualização de Arquitetura**: O projeto segue o padrão em camadas explicitas: **Controller -> Service -> Repository -> Data Source (Prisma)**. Isso garante desacoplamento e facilita testes.
 
 ### Principais Funcionalidades
 
@@ -45,7 +48,7 @@ O sistema foi projetado para resolver problemas de **segurança** e **escalabili
 | :------------ | :--------------- | :------------------------------------------------------------- |
 | **Runtime**   | Node.js          | Ambiente de execução JavaScript                                |
 | **Framework** | Express.js       | Servidor Web RESTful                                           |
-| **Database**  | Prisma ORM       | Cliente de Banco de Dados (SQLite em Dev / PostgreSQL em Prod) |
+| **Database**  | Prisma ORM (via Repositories)       | Cliente de Banco de Dados (SQLite em Dev / PostgreSQL em Prod) |
 | **Auth**      | JWT + bcryptjs   | Autenticação Stateless e Hashing de senhas                     |
 | **Real-time** | Socket.io        | Chat e Notificações                                            |
 | **Testes**    | Jest + Supertest | Suíte de testes (Unitários e Integração)                       |
@@ -139,6 +142,38 @@ O sistema utiliza um modelo hierárquico: **Feature -> Permission -> Role -> Use
 
 ---
 
+## ⚠️ Tratamento de Erros
+
+O backend utiliza uma estratégia centralizada de tratamento de erros para garantir respostas consistentes.
+
+### Classes de Erro (`src/errors/AppError.js`)
+
+Use estas classes ao lançar exceções nos Services:
+
+| Classe              | Status Code | Uso                                      |
+| :------------------ | :---------- | :--------------------------------------- |
+| `AppError`          | 500         | Erro genérico (base)                     |
+| `ValidationError`   | 400         | Dados de entrada inválidos               |
+| `UnauthorizedError` | 401         | Falha de autenticação                    |
+| `ForbiddenError`    | 403         | Sem permissão (RBAC)                     |
+| `NotFoundError`     | 404         | Recurso não encontrado                   |
+| `ConflictError`     | 409         | Conflito de dados (ex: email duplicado)  |
+
+**Exemplo:**
+```javascript
+if (!user) throw new NotFoundError("Usuário não encontrado");
+```
+
+Todas as exceções são capturadas pelo middleware `src/middlewares/error.js`, que formata a resposta JSON padrão:
+```json
+{
+  "status": "error",
+  "message": "Usuário não encontrado"
+}
+```
+
+---
+
 ## 📖 Documentação da API
 
 Principais endpoints disponíveis. Para a documentação completa e interativa, acesse o **Swagger UI** rodando o projeto e navegando para:
@@ -226,38 +261,60 @@ Permissões necessárias: `product:read`, `product:create`.
 
 ---
 
-### Passo 2: Camada de Service (`services/products.service.js`)
+### Passo 2: Camada de Repository (`repositories/products.repository.js`)
 
-Crie a lógica de negócio. **Não** receba `req` ou `res` aqui. Receba dados puros.
+Crie a camada de acesso a dados. O Repository encapsula o Prisma.
 
 ```javascript
-const prisma = require("../utils/prisma"); // Singleton do Prisma
+const prisma = require("../utils/prisma");
+
+class ProductsRepository {
+  async create(data) {
+    return prisma.product.create({ data });
+  }
+
+  async getAll(where) {
+    return prisma.product.findMany({ where });
+  }
+}
+
+module.exports = new ProductsRepository();
+```
+
+---
+
+### Passo 3: Camada de Service (`services/products.service.js`)
+
+Crie a lógica de negócio. Use o Repository, não o Prisma diretamente. Trate erros com `AppError`.
+
+```javascript
+const productsRepository = require("../repositories/products.repository");
+const { ValidationError } = require("../errors/AppError");
 
 class ProductsService {
   async create(data) {
     // Validações de negócio aqui
-    if (data.price < 0) throw new Error("Preço inválido");
+    if (data.price < 0) throw new ValidationError("Preço inválido");
 
-    return prisma.product.create({
-      data: {
-        name: data.name,
-        price: data.price,
-        companyId: data.companyId,
-      },
+    return productsRepository.create({
+      name: data.name,
+      price: data.price,
+      companyId: data.companyId,
     });
   }
 
   async getAll(companyId) {
-    return prisma.product.findMany({ where: { companyId } });
+    return productsRepository.getAll({ companyId });
   }
 }
 
 module.exports = new ProductsService();
 ```
 
+
 ---
 
-### Passo 3: Camada de Controller (`controllers/products.controller.js`)
+### Passo 4: Camada de Controller (`controllers/products.controller.js`)
 
 Gerencia a entrada HTTP e chama o Service.
 
@@ -283,7 +340,7 @@ module.exports = new ProductsController();
 
 ---
 
-### Passo 4: Rotas e Segurança (`routes/products.routes.js`)
+### Passo 5: Rotas e Segurança (`routes/products.routes.js`)
 
 Defina os endpoints e proteja com **Auth Guard** e **Permission Check**.
 
@@ -309,38 +366,37 @@ module.exports = router;
 
 ---
 
-### Passo 5: Testes Unitários (`tests/unit/products.service.test.js`)
+### Passo 6: Testes Unitários (`tests/unit/products.service.test.js`)
 
-**OBRIGATÓRIO**: Antes de considerar pronto, escreva o teste unitário.
+**OBRIGATÓRIO**: Use Mocks para o Repository.
 
 ```javascript
-const { mockReset } = require("jest-mock-extended");
-jest.mock("../../utils/prisma"); // <--- IMPORTANTE: Use o mock manual
-
-const prisma = require("../../utils/prisma");
 const productsService = require("../../services/products.service");
+const productsRepository = require("../../repositories/products.repository");
+
+jest.mock("../../repositories/products.repository");
 
 describe("ProductsService", () => {
   beforeEach(() => {
-    mockReset(prisma);
+    jest.clearAllMocks();
   });
 
   it("deve criar um produto", async () => {
     const data = { name: "Prod A", price: 10, companyId: 1 };
-    // Define o retorno esperado do mock do banco
-    prisma.product.create.mockResolvedValue({ id: 1, ...data });
+    productsRepository.create.mockResolvedValue({ id: 1, ...data });
 
     const result = await productsService.create(data);
 
     expect(result.id).toBe(1);
-    expect(prisma.product.create).toHaveBeenCalled();
+    expect(productsRepository.create).toHaveBeenCalledWith(expect.objectContaining({ name: "Prod A" }));
   });
 });
 ```
 
+
 ---
 
-### Passo 6: Cadastro no Sistema (RBAC)
+### Passo 7: Cadastro no Sistema (RBAC)
 
 O código está pronto, mas ninguém tem acesso ainda. Você precisa "avisar" o sistema que essa feature existe.
 Faça estas chamadas via Postman/Insomnia (ou via interface admin quando existir):
@@ -352,7 +408,7 @@ Faça estas chamadas via Postman/Insomnia (ou via interface admin quando existir
     - `POST /permissions`
     - Body: `{ "name": "Criar Produtos", "slug": "product:create", "featureId": ID_DA_FEATURE }`
 
-### Passo 7: Liberar Acesso
+### Passo 8: Liberar Acesso
 
 1.  **Atribuir ao Role**:
     - Identifique o Role (ex: Gestor, ID 2).
@@ -368,11 +424,13 @@ Faça estas chamadas via Postman/Insomnia (ou via interface admin quando existir
 ```
 backend-elementar/
 ├── config/             # Variáveis globais e constantes
-├── controllers/        # Controladores (Validação básica + Chamada de Serviço)
+├── controllers/        # Controladores (Entrada HTTP e delegação para Service)
+├── errors/             # Classes de erro padronizadas (AppError)
 ├── middlewares/        # Auth, Permission, Error Handling
 ├── prisma/             # Schema.prisma, Migrations e Seeds
+├── repositories/       # Acesso a Dados (Abstração do Prisma)
 ├── routes/             # Definição de rotas do Express
-├── services/           # Regras de Negócio (Core da aplicação)
+├── services/           # Regras de Negócio (Usa Repositories)
 ├── tests/              # Suíte de Testes (Unitários e Integração)
 │   ├── integration/
 │   └── unit/

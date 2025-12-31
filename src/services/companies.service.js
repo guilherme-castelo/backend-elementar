@@ -1,28 +1,32 @@
-const prisma = require('../utils/prisma');
+const companyRepository = require("../repositories/companies.repository");
+const { NotFoundError } = require("../errors/AppError");
 
 class CompanyService {
   async getAll() {
-    return prisma.company.findMany();
+    return companyRepository.getAll();
   }
 
   async getById(id) {
-    return prisma.company.findUnique({ where: { id: parseInt(id) } });
+    const company = await companyRepository.getById(id);
+    if (!company) throw new NotFoundError('Company not found');
+    return company;
   }
 
   async create(data) {
-    return prisma.company.create({ data });
+    // Basic validation could go here
+    return companyRepository.create(data);
   }
 
   async update(id, data) {
-    return prisma.company.update({
-      where: { id: parseInt(id) },
-      data
-    });
+    await this.getById(id); // check existence
+    return companyRepository.update(id, data);
   }
 
   async delete(id) {
-    return prisma.company.delete({ where: { id: parseInt(id) } });
+    await this.getById(id); // check existence
+    return companyRepository.delete(id);
   }
 }
 
 module.exports = new CompanyService();
+

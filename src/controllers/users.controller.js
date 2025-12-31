@@ -3,11 +3,7 @@ const usersService = require("../services/users.service");
 exports.getAll = async (req, res, next) => {
   try {
     const data = await usersService.getAll();
-    const safeData = data.map((u) => {
-      const { password, ...rest } = u;
-      return rest;
-    });
-    res.json(safeData);
+    res.json(data);
   } catch (error) {
     next(error);
   }
@@ -16,21 +12,18 @@ exports.getAll = async (req, res, next) => {
 exports.getById = async (req, res, next) => {
   try {
     const data = await usersService.getById(req.params.id);
-    if (!data) return res.status(404).json({ message: "User not found" });
-    const { password, ...rest } = data;
-    res.json(rest);
+    res.json(data);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };
 
 exports.create = async (req, res, next) => {
   try {
     const data = await usersService.create(req.body);
-    const { password, ...rest } = data;
-    res.status(201).json(rest);
+    res.status(201).json(data);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    next(error);
   }
 };
 
@@ -39,7 +32,7 @@ exports.update = async (req, res, next) => {
     const data = await usersService.update(req.params.id, req.body);
     res.json(data);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    next(error);
   }
 };
 
@@ -48,15 +41,17 @@ exports.delete = async (req, res, next) => {
     await usersService.delete(req.params.id);
     res.status(204).send();
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };
 
 exports.inactivate = async (req, res, next) => {
   try {
+    // Inactivate logic via update
     await usersService.update(req.params.id, { isActive: false });
     res.status(204).send();
   } catch (error) {
     next(error);
   }
 };
+

@@ -30,6 +30,29 @@ describe("InvitationsController", () => {
         expect.objectContaining({ token: "abc" })
       );
     });
+
+    it("should handle error", async () => {
+      service.create.mockRejectedValue(new Error("Err"));
+      await controller.invite(req, res, next);
+      expect(next).toHaveBeenCalled();
+    });
+  });
+
+  describe("validate", () => {
+    it("should return valid if token checks out", async () => {
+      req.params.token = "t";
+      service.validateToken.mockResolvedValue({ email: "e@m.com" });
+      await controller.validate(req, res, next);
+      expect(res.json).toHaveBeenCalledWith({ email: "e@m.com", isValid: true });
+    });
+
+    it("should return 400 if token invalid", async () => {
+      req.params.token = "t";
+      service.validateToken.mockRejectedValue(new Error("Invalid"));
+      await controller.validate(req, res, next);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ message: "Invalid", isValid: false });
+    });
   });
 
   describe("accept", () => {
@@ -41,6 +64,12 @@ describe("InvitationsController", () => {
         password: "p",
       });
       expect(res.status).toHaveBeenCalledWith(201);
+    });
+
+    it("should handle error", async () => {
+      service.accept.mockRejectedValue(new Error("Err"));
+      await controller.accept(req, res, next);
+      expect(next).toHaveBeenCalled();
     });
   });
 });

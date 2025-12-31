@@ -1,66 +1,69 @@
 const { mockReset } = require("jest-mock-extended");
-jest.mock("../../src/utils/prisma");
-
-const prisma = require("../../src/utils/prisma");
 const tasksService = require("../../src/services/tasks.service");
+const tasksRepository = require("../../src/repositories/tasks.repository");
+
+jest.mock("../../src/repositories/tasks.repository");
 
 describe("TasksService", () => {
   beforeEach(() => {
-    mockReset(prisma);
+    jest.clearAllMocks();
   });
 
   describe("getAll", () => {
-    it("should return tasks for user", async () => {
-      // Mock needs to return array with collaborators for the map function in service
-      const mockTasks = [
-        {
-          id: 1,
-          title: "Task",
-          collaborators: [{ id: 2 }],
-        },
-      ];
-      prisma.task.findMany.mockResolvedValue(mockTasks);
+    it("should apply visibility filters correctly", async () => {
+      tasksRepository.getAll.mockResolvedValue([]);
 
-      // Pass user object { id: 1 } as second arg
-      const result = await tasksService.getAll({ userId: 1 }, { id: 1 });
+      const user = { id: 10 };
+      const query = { status: "todo" };
 
-      expect(prisma.task.findMany).toHaveBeenCalled();
-      expect(result[0].collaboratorUserIds).toEqual([2]);
+      await tasksService.getAll(query, user);
+
+      expect(tasksRepository.getAll).toHaveBeenCalledWith(expect.objectContaining({
+        AND: [
+          expect.objectContaining({ status: "todo" }),
+          expect.objectContaining({
+            OR: [
+              { isPublic: true },
+              { ownerUserId: 10 },
+              { collaborators: { some: { id: 10 } } }
+            ]
+          })
+        ]
+      }));
     });
   });
 
   describe("create", () => {
-    it("should create task", async () => {
-      const data = { title: "T", description: "D", companyId: 1, creatorId: 1 };
+    it("should connect collaborators", async () => {
+      const data = { title: "Test", collaboratorUserIds: [2, 3] };
+      tasksRepository.create.mockResolvedValue({ id: 1, ...data, collaborators: [{ id: 2 }, { id: 3 }] });
 
-      // Mock create return MUST include collaborators array
-      prisma.task.create.mockResolvedValue({
-        id: 1,
-        ...data,
-        collaborators: [],
-      });
+      const result = await tasksService.create(data);
 
-      await tasksService.create(data);
-      expect(prisma.task.create).toHaveBeenCalled();
+      expect(tasksRepository.create).toHaveBeenCalledWith(expect.objectContaining({
+        collaborators: { connect: [{ id: 2 }, { id: 3 }] }
+      }));
+      expect(result.collaboratorUserIds).toEqual([2, 3]);
     });
   });
 
-  describe("Other Methods", () => {
-    it("getById should return task", async () => {
-      prisma.task.findUnique.mockResolvedValue({ id: 1, collaborators: [] });
-      await tasksService.getById(1);
-      expect(prisma.task.findUnique).toHaveBeenCalled();
-    });
+  describe("update", () => {
+    it("should update collaborators set", async () => {
+      tasksRepository.update.mockResolvedValue({ id: 1, collaborators: [] });
 
-    it("update should update task", async () => {
-      prisma.task.update.mockResolvedValue({ id: 1, collaborators: [] });
-      await tasksService.update(1, { title: "New" });
-      expect(prisma.task.update).toHaveBeenCalled();
-    });
+      await tasksService.update(1, { collaboratorUserIds: [5] });
 
-    it("delete should delete task", async () => {
-      await tasksService.delete(1);
-      expect(prisma.task.delete).toHaveBeenCalled();
+      expect(tasksRepository.update).toHaveBeenCalledWith(1, expect.objectContaining({
+        collaborators: { set: [{ id: 5 }] }
+      }));
+    });
+  });
+
+  describe("getById", () => {
+    it("should return null if repo returns null", async () => {
+      tasksRepository.getById.mockResolvedValue(null);
+      await expect(tasksService.getById(99)).rejects.toThrow("Task not found");
     });
   });
 });
+

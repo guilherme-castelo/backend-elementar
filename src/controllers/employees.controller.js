@@ -12,12 +12,12 @@ exports.getAll = async (req, res, next) => {
 exports.getById = async (req, res, next) => {
   try {
     const data = await employeesService.getById(req.params.id);
-    if (!data) return res.status(404).json({ message: "Employee not found" });
     res.json(data);
   } catch (error) {
     next(error);
   }
 };
+
 
 exports.create = async (req, res, next) => {
   try {

@@ -12,12 +12,12 @@ exports.getAll = async (req, res, next) => {
 exports.getOne = async (req, res, next) => {
   try {
     const data = await tasksService.getById(req.params.id);
-    if (!data) return res.status(404).json({ message: 'Task not found' });
     res.json(data);
   } catch (error) {
     next(error);
   }
 };
+
 
 exports.create = async (req, res, next) => {
   try {

@@ -1,22 +1,15 @@
-const prisma = require("../utils/prisma");
+const tasksRepository = require("../repositories/tasks.repository");
+const { NotFoundError } = require("../errors/AppError");
 
 class TasksService {
   async getAll(query, user) {
     const { _sort, _order, title, status, ownerUserId } = query;
-    // Basic filtering implementation matching JSON-Server capability mostly
     const where = {};
     if (title) where.title = { contains: title };
     if (status) where.status = status;
     if (ownerUserId) where.ownerUserId = parseInt(ownerUserId);
 
-    // Access Control: Public OR Owned OR Collaborator
-    // Since backend logic should enforce visibility.
-    // If Admin (user.roles has admin), maybe see all?
-    // User request: "Respect Permissions" -> "Public Tasks" (isPublic=true) OR (owner=me) OR (collaborators has me).
-
-    // If specific filter is passed, we check if user is allowed to see it?
-    // Let's implement global visibility filter + query filters.
-
+    // Access Control Logic
     const visibilityFilter = {
       OR: [
         { isPublic: true },
@@ -25,25 +18,16 @@ class TasksService {
       ],
     };
 
-    const tasks = await prisma.task.findMany({
-      where: {
-        AND: [where, visibilityFilter],
-      },
-      include: {
-        collaborators: {
-          select: { id: true, name: true, email: true }, // Return basic user info
-        },
-        comments: {
-          include: { author: { select: { id: true, name: true } } },
-        },
-        owner: {
-          select: { id: true, name: true },
-        },
-      },
-      orderBy: {
-        updatedAt: "desc",
-      },
-    });
+    const finalWhere = {
+      AND: [where, visibilityFilter],
+    };
+
+    // Sorting not fully implemented in Repo generic? 
+    // Repo uses default orderBy. We can pass it if needed.
+    // For now keeping default.
+
+    // Using generic getAll
+    const tasks = await tasksRepository.getAll(finalWhere);
 
     return tasks.map((task) => ({
       ...task,
@@ -52,17 +36,9 @@ class TasksService {
   }
 
   async getById(id) {
-    const task = await prisma.task.findUnique({
-      where: { id },
-      include: {
-        collaborators: true,
-        comments: {
-          include: { author: { select: { id: true, name: true } } },
-        },
-      },
-    });
+    const task = await tasksRepository.getById(id);
 
-    if (!task) return null;
+    if (!task) throw new NotFoundError("Task not found");
 
     return {
       ...task,
@@ -84,10 +60,7 @@ class TasksService {
 
     if (!payload.status) payload.status = "todo";
 
-    const newTask = await prisma.task.create({
-      data: payload,
-      include: { collaborators: true },
-    });
+    const newTask = await tasksRepository.create(payload);
 
     return {
       ...newTask,
@@ -96,6 +69,10 @@ class TasksService {
   }
 
   async update(id, data) {
+    // Check existence
+    // We could do this.getById(id) but standardizing.
+    // Repo update throws if not found? Prisma throws P2025. AppError middleware catches it.
+
     const {
       collaboratorUserIds,
       comments,
@@ -106,22 +83,17 @@ class TasksService {
       collaborators,
       ownerUserId,
       ...rest
-    } = data; // Comments handled separately usually
+    } = data;
 
     const payload = { ...rest };
 
-    // Update collaborators if provided
     if (collaboratorUserIds && Array.isArray(collaboratorUserIds)) {
       payload.collaborators = {
         set: collaboratorUserIds.map((uid) => ({ id: uid })),
       };
     }
 
-    const updatedTask = await prisma.task.update({
-      where: { id },
-      data: payload,
-      include: { collaborators: true, comments: true },
-    });
+    const updatedTask = await tasksRepository.update(id, payload);
 
     return {
       ...updatedTask,
@@ -130,28 +102,23 @@ class TasksService {
   }
 
   async delete(id) {
-    return prisma.task.delete({ where: { id } });
+    // Prisma throws if not found or we silent?
+    // Let's try delete. If P2025 comes, middleware handles 404.
+    return tasksRepository.delete(id);
   }
 
   async getComments(taskId) {
-    return prisma.taskComment.findMany({
-      where: { taskId },
-      include: { author: { select: { id: true, name: true } } },
-      orderBy: { createdAt: "asc" },
-    });
+    return tasksRepository.getComments(taskId);
   }
 
   async addComment(taskId, data) {
-    // data: { authorId, content, ... }
-    return prisma.taskComment.create({
-      data: {
-        content: data.content,
-        taskId: taskId,
-        authorId: data.authorId,
-      },
-      include: { author: { select: { id: true, name: true } } },
+    return tasksRepository.addComment({
+      content: data.content,
+      taskId: taskId,
+      authorId: data.authorId,
     });
   }
 }
 
 module.exports = new TasksService();
+
