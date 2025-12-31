@@ -1,17 +1,18 @@
 const usersRepository = require("../repositories/users.repository");
-const bcrypt = require('bcryptjs');
+const bcrypt = require("bcryptjs");
 const { NotFoundError, ConflictError } = require("../errors/AppError");
+const rolesService = require("./roles.service");
 
 class UsersService {
   async getAll() {
     const users = await usersRepository.getAll();
-    return users.map(u => this._formatUserResponse(u));
+    return users.map((u) => this._formatUserResponse(u));
   }
 
   async getById(id) {
     const user = await usersRepository.getById(id);
     if (!user) {
-      throw new NotFoundError('User not found');
+      throw new NotFoundError("User not found");
     }
     return this._formatUserResponse(user);
   }
@@ -26,7 +27,7 @@ class UsersService {
     // Check for existing email
     const existing = await usersRepository.findByEmail(data.email);
     if (existing) {
-      throw new ConflictError('Email already exists');
+      throw new ConflictError("Email already exists");
     }
 
     const payload = { ...data };
@@ -46,14 +47,53 @@ class UsersService {
         dateFormat: "DD/MM/YYYY",
         automaticTimeZone: { name: "GMT-03:00", isEnabled: true },
       });
-    } else if (typeof payload.preferences === 'object') {
+    } else if (typeof payload.preferences === "object") {
       payload.preferences = JSON.stringify(payload.preferences);
     }
 
-    if (typeof payload.address === 'object') payload.address = JSON.stringify(payload.address);
-    if (Array.isArray(payload.roles)) payload.roles = payload.roles.join(',');
+    if (typeof payload.address === "object")
+      payload.address = JSON.stringify(payload.address);
+    if (Array.isArray(payload.roles)) payload.roles = payload.roles.join(",");
 
     const user = await usersRepository.create(payload);
+
+    // Initial Membership Creation
+    if (payload.companyId) {
+      // Logic for Role ID: If payload has roleId (legacy) or payload.roles (string array?), use it.
+      // Payload might come from Auth Service register which assumes logic.
+      // We will look for payload.roleId (integer).
+      let roleId = payload.roleId ? parseInt(payload.roleId) : null;
+
+      // If no roleId, we try to find default "User" role for now to maintain behavior?
+      // Or we rely on caller toprovide it.
+      // Let's rely on caller.
+
+      if (roleId) {
+        // Validate Scope
+        const isValid = await rolesService.validateScope(
+          roleId,
+          payload.companyId
+        );
+        if (!isValid) {
+          // We created the user... rollback? Ideally this should be a transaction.
+          // Since repository.create is not transactional here, we might have inconsistency if we fail now.
+          // But removing user is easy.
+          await usersRepository.delete(user.id);
+          throw new Error("Role is not valid for this company scope.");
+        }
+
+        const prisma = require("../utils/prisma");
+        await prisma.userMembership.create({
+          data: {
+            userId: user.id,
+            companyId: parseInt(payload.companyId),
+            roleId: roleId,
+            isActive: true,
+          },
+        });
+      }
+    }
+
     return this._formatUserResponse(user);
   }
 
@@ -67,9 +107,11 @@ class UsersService {
     }
     if (payload.companyId) payload.companyId = parseInt(payload.companyId);
 
-    if (typeof payload.preferences === 'object') payload.preferences = JSON.stringify(payload.preferences);
-    if (typeof payload.address === 'object') payload.address = JSON.stringify(payload.address);
-    if (Array.isArray(payload.roles)) payload.roles = payload.roles.join(',');
+    if (typeof payload.preferences === "object")
+      payload.preferences = JSON.stringify(payload.preferences);
+    if (typeof payload.address === "object")
+      payload.address = JSON.stringify(payload.address);
+    if (Array.isArray(payload.roles)) payload.roles = payload.roles.join(",");
 
     const user = await usersRepository.update(id, payload);
     return this._formatUserResponse(user);
@@ -89,4 +131,3 @@ class UsersService {
 }
 
 module.exports = new UsersService();
-

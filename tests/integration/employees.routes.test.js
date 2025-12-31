@@ -23,6 +23,7 @@ describe("Integration: Employees Routes", () => {
         { slug: "employee:delete" },
       ],
     },
+    companyId: 1,
   };
 
   describe("GET /employees", () => {
@@ -67,7 +68,7 @@ describe("Integration: Employees Routes", () => {
         .post("/employees")
         .set("Authorization", `Bearer ${token}`)
         .send({ name: "" })
-        .expect(500);
+        .expect(400);
     });
   });
 });

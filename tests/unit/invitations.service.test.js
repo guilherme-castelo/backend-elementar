@@ -1,13 +1,13 @@
 const { mockReset } = require("jest-mock-extended");
-jest.mock("../../src/utils/prisma");
 const prisma = require("../../src/utils/prisma");
 const service = require("../../src/services/invitations.service");
 const bcrypt = require("bcryptjs");
+const rolesService = require("../../src/services/roles.service");
 
-// Mock bcrypt locally
-jest.mock("bcryptjs", () => ({
-  hash: jest.fn(),
-}));
+// Mock Deps
+jest.mock("../../src/utils/prisma");
+jest.mock("bcryptjs", () => ({ hash: jest.fn() }));
+jest.mock("../../src/services/roles.service");
 
 describe("InvitationsService", () => {
   beforeEach(() => {
@@ -19,6 +19,10 @@ describe("InvitationsService", () => {
     it("should create invitation", async () => {
       const data = { email: "new@test.com", roleId: 2 };
       prisma.user.findUnique.mockResolvedValue(null); // User distinct check
+
+      // Mock Scope Validation
+      rolesService.validateScope.mockResolvedValue(true);
+
       prisma.invitation.create.mockResolvedValue({
         id: "uuid",
         token: "abc",
@@ -30,6 +34,7 @@ describe("InvitationsService", () => {
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
         where: { email: "new@test.com" },
       });
+      expect(rolesService.validateScope).toHaveBeenCalledWith(2, 1);
       expect(prisma.invitation.create).toHaveBeenCalled();
       expect(result).toHaveProperty("token");
     });
@@ -39,6 +44,15 @@ describe("InvitationsService", () => {
       await expect(
         service.create(1, { email: "exists@test.com" })
       ).rejects.toThrow("User with this email already exists");
+    });
+
+    it("should fail if scope invalid", async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      rolesService.validateScope.mockResolvedValue(false);
+
+      await expect(
+        service.create(1, { email: "test@test.com", roleId: 2 })
+      ).rejects.toThrow("Role is not valid");
     });
   });
 
@@ -68,7 +82,7 @@ describe("InvitationsService", () => {
   });
 
   describe("accept", () => {
-    it("should create user and delete invite", async () => {
+    it("should create user, membership and delete invite", async () => {
       const mockInvite = {
         id: "inv1",
         email: "a@a.com",
@@ -82,15 +96,26 @@ describe("InvitationsService", () => {
       bcrypt.hash.mockResolvedValue("hashed");
 
       // Mock $transaction execution
+      // We pass the main prisma mock OR a specialized mock object as `tx`
       prisma.$transaction.mockImplementation(async (callback) => {
-        return callback(prisma); // Pass main mock as tx mock
+        return callback(prisma);
       });
 
       prisma.user.create.mockResolvedValue({ id: 10, email: "a@a.com" });
+      prisma.userMembership.create.mockResolvedValue({});
+      prisma.invitation.delete.mockResolvedValue({});
 
       await service.accept("token", { name: "New User", password: "123" });
 
       expect(prisma.user.create).toHaveBeenCalled();
+      expect(prisma.userMembership.create).toHaveBeenCalledWith({
+        data: {
+          userId: 10,
+          companyId: 1,
+          roleId: 2,
+          isActive: true,
+        },
+      });
       expect(prisma.invitation.delete).toHaveBeenCalledWith({
         where: { id: "inv1" },
       });

@@ -18,6 +18,7 @@ describe("Integration: Integrations Routes", () => {
     role: {
       permissions: [{ slug: "integration:dominio" }],
     },
+    companyId: 1,
   };
 
   const userWithoutPermission = {
@@ -26,6 +27,7 @@ describe("Integration: Integrations Routes", () => {
     role: {
       permissions: [],
     },
+    companyId: 1,
   };
   const tokenNoPerms = jwt.sign({ id: 2 }, "test-secret");
 

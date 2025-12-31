@@ -1,4 +1,4 @@
-const chatService = require('../services/chat.service');
+const chatService = require("../services/chat.service");
 
 exports.getConversations = async (req, res, next) => {
   try {
@@ -11,7 +11,10 @@ exports.getConversations = async (req, res, next) => {
 
 exports.getMessages = async (req, res, next) => {
   try {
-    const data = await chatService.getMessages(req.query.conversationId);
+    const data = await chatService.getMessages(
+      req.query.conversationId,
+      req.user.id
+    );
     res.json(data);
   } catch (error) {
     next(error);
@@ -61,6 +64,25 @@ exports.getUnreadCount = async (req, res, next) => {
   try {
     const count = await chatService.getUnreadCount(req.user.id);
     res.json({ count });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteMessage = async (req, res, next) => {
+  try {
+    const { messageId } = req.params;
+    await chatService.deleteMessage(messageId, req.user.id);
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+exports.deleteConversation = async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+    await chatService.deleteConversation(conversationId, req.user.id);
+    res.status(204).send();
   } catch (error) {
     next(error);
   }

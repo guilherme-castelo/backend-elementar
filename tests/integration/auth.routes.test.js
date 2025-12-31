@@ -5,7 +5,11 @@ const app = require("../../src/app");
 const bcrypt = require("bcryptjs");
 const config = require("../../src/config/config");
 
-jest.mock("../../src/utils/prisma");
+jest.mock("../../src/utils/prisma", () => ({
+  user: { findUnique: jest.fn(), create: jest.fn() },
+  role: { findUnique: jest.fn() },
+  userMembership: { findMany: jest.fn() },
+}));
 
 // Explicit mocks for deps
 jest.mock("bcryptjs", () => ({
@@ -16,7 +20,6 @@ jest.mock("jsonwebtoken", () => ({
   sign: jest.fn(),
   verify: jest.fn(),
 }));
-
 
 describe("Integration: Auth Routes", () => {
   beforeEach(() => {
@@ -38,6 +41,7 @@ describe("Integration: Auth Routes", () => {
     it("should login successfully with valid credentials", async () => {
       // Mock findUnique to return user
       prismaMock.user.findUnique.mockResolvedValue(mockUser);
+      prismaMock.userMembership.findMany.mockResolvedValue([]);
       bcrypt.compare.mockResolvedValue(true);
       jwt.sign.mockReturnValue("mock-token");
 
@@ -81,11 +85,13 @@ describe("Integration: Auth Routes", () => {
     it("should register a new user successfully", async () => {
       prismaMock.user.findUnique.mockResolvedValue(null); // No existing user
       prismaMock.role.findUnique.mockResolvedValue({ id: 2, name: "User" }); // Default role
+      prismaMock.userMembership.findMany.mockResolvedValue([]); // Mock memberships
       prismaMock.user.create.mockResolvedValue({
         id: 2,
         email: "new@example.com",
         name: "New User",
         role: { name: "User", permissions: [] },
+        companyId: 1, // Fix: needed for legacy token payload
       });
 
       const res = await request(app).post("/auth/register").send({
@@ -100,7 +106,10 @@ describe("Integration: Auth Routes", () => {
 
     it("should fail if email already exists", async () => {
       // Use Once to avoid affecting other tests if they run in parallel (though jest runs unittests sequentially by default in same file)
-      prismaMock.user.findUnique.mockResolvedValueOnce({ id: 99, email: "test@example.com" });
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        id: 99,
+        email: "test@example.com",
+      });
 
       const res = await request(app).post("/auth/register").send({
         email: "test@example.com",
@@ -124,8 +133,8 @@ describe("Integration: Auth Routes", () => {
         ...mockUser,
         role: {
           name: "USER",
-          permissions: []
-        }
+          permissions: [],
+        },
       };
 
       prismaMock.user.findUnique.mockResolvedValue(fullUser);
@@ -135,10 +144,14 @@ describe("Integration: Auth Routes", () => {
         .set("Authorization", `Bearer ${token}`);
 
       if (res.statusCode !== 200) {
-        throw new Error(`Expected 200, got ${res.statusCode}. Body: ${JSON.stringify(res.body)}`);
+        throw new Error(
+          `Expected 200, got ${res.statusCode}. Body: ${JSON.stringify(
+            res.body
+          )}`
+        );
       }
       expect(res.statusCode).toEqual(200);
-      expect(res.body.email).toEqual(mockUser.email);
+      expect(res.body.user.email).toEqual(mockUser.email);
 
       verifySpy.mockRestore();
     });

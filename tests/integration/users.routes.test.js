@@ -15,6 +15,7 @@ describe("Integration: Users Routes", () => {
     id: 1,
     isActive: true,
     role: { permissions: [{ slug: "user:read" }, { slug: "user:create" }] },
+    companyId: 1,
   };
 
   it("should list users", async () => {

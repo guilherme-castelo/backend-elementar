@@ -1,10 +1,15 @@
 const prisma = require("../utils/prisma");
 const { getIO } = require("../utils/socket");
 
+const {
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} = require("../errors/AppError");
+
 class ChatService {
   async getConversations(userId) {
     // Find conversations where user is a participant
-    // Implicit M:N in Prisma: 'participants'
     const conversations = await prisma.conversation.findMany({
       where: {
         participants: {
@@ -40,9 +45,19 @@ class ChatService {
     }));
   }
 
-  async getMessages(conversationId) {
-    // Basic permissions check? typically yes, but for MVP assumes ID knowledge = access or middleware handles it.
-    // Ideally check if user in conversation.
+  async getMessages(conversationId, userId) {
+    // Verify participation
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        participants: { some: { id: userId } },
+      },
+    });
+
+    if (!conversation) {
+      throw new NotFoundError("Conversation not found or access denied.");
+    }
+
     return prisma.message.findMany({
       where: { conversationId },
       include: {
@@ -52,22 +67,55 @@ class ChatService {
     });
   }
 
+  async _validateSharedContext(userId, recipientId) {
+    // Check if users share at least one company
+    const userMemberships = await prisma.userMembership.findMany({
+      where: { userId, isActive: true },
+      select: { companyId: true },
+    });
+
+    const recipientMemberships = await prisma.userMembership.findMany({
+      where: { userId: recipientId, isActive: true },
+      select: { companyId: true },
+    });
+
+    const userCompanies = userMemberships.map((m) => m.companyId);
+    const recipientCompanies = recipientMemberships.map((m) => m.companyId);
+
+    const hasSharedCompany = userCompanies.some((id) =>
+      recipientCompanies.includes(id)
+    );
+
+    if (!hasSharedCompany) {
+      throw new ForbiddenError(
+        "You cannot chat with this user (Different Company)."
+      );
+    }
+  }
+
   async sendMessage(userId, data) {
     const { conversationId, recipientId, content } = data;
     let targetConvId = conversationId;
 
-    if (!targetConvId && recipientId) {
-      // Check for existing conversation
-      // This is tricky in Prisma M:N.
-      // Find conversation with exactly these 2 participants.
-      // Hack: Search conversations of Sender, filter in JS for Recipient (simplest for MVP SQLite)
-      // Or Raw Query.
+    if (!content) throw new ValidationError("Content is required");
+
+    if (conversationId) {
+      // Validate access to existing conversation
+      const conv = await prisma.conversation.findFirst({
+        where: { id: conversationId, participants: { some: { id: userId } } },
+        include: { participants: true },
+      });
+      if (!conv) throw new NotFoundError("Conversation not found");
+      targetConvId = conv.id;
+    } else if (recipientId) {
+      // Validate Shared Context for NEW conversations
+      await this._validateSharedContext(userId, recipientId);
+
+      // Check for existing conversation with this recipient
+      // Hack: Search conversations of Sender, filter in JS
       const existingConvs = await prisma.conversation.findMany({
         where: {
           participants: { every: { id: { in: [userId, recipientId] } } },
-          // Warning: 'every' means ALL participants must be in list.
-          // If there is a group chat with 3 people, this might match if all 3 are in list.
-          // But for 1:1, we want size=2.
         },
         include: { participants: true },
       });
@@ -92,9 +140,9 @@ class ChatService {
         });
         targetConvId = newConv.id;
       }
+    } else {
+      throw new ValidationError("Recipient or Conversation ID required");
     }
-
-    if (!targetConvId) throw new Error("Recipient or Conversation ID required");
 
     // Create Message
     const message = await prisma.message.create({
@@ -146,6 +194,10 @@ class ChatService {
   }
 
   async createConversation(userId, recipientId) {
+    if (!recipientId) throw new ValidationError("Recipient ID required");
+
+    await this._validateSharedContext(userId, recipientId);
+
     // Check existence first
     const existingConvs = await prisma.conversation.findMany({
       where: {
@@ -251,6 +303,47 @@ class ChatService {
     }
   }
 
+  async deleteMessage(messageId, userId) {
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+    });
+
+    if (!message) {
+      throw new NotFoundError("Message not found");
+    }
+
+    if (message.senderId !== userId) {
+      throw new ForbiddenError("You can only delete your own messages");
+    }
+
+    // Hard delete or soft delete? User said "deletar". Hard delete for now or clear content.
+    // Given privacy request (undo send), hard delete is better or "Deleted message" placeholder.
+    // Let's go with hard delete for MVP simplicity.
+    await prisma.message.delete({
+      where: { id: messageId },
+    });
+
+    // Notify participants via socket
+    try {
+      const conversation = await prisma.conversation.findUnique({
+        where: { id: message.conversationId },
+        include: { participants: { select: { id: true } } },
+      });
+
+      const io = getIO();
+      if (conversation && conversation.participants) {
+        conversation.participants.forEach((p) => {
+          io.to(p.id.toString()).emit("message_deleted", {
+            messageId: messageId,
+            conversationId: message.conversationId,
+          });
+        });
+      }
+    } catch (e) {
+      console.error("Socket Emission Failed on Delete:", e.message);
+    }
+  }
+
   async getUnreadCount(userId) {
     return prisma.message.count({
       where: {
@@ -261,6 +354,44 @@ class ChatService {
         readAt: null,
       },
     });
+  }
+  async deleteConversation(conversationId, userId) {
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        participants: { some: { id: userId } },
+      },
+      include: { participants: true },
+    });
+
+    if (!conversation) {
+      throw new NotFoundError("Conversation not found");
+    }
+
+    // For now, allow any participant to delete the conversation (Hard Delete)
+    // Or maybe restrict to creator? We don't track creator explicitly other than participants.
+    // Let's allow participant to delete (nuke) for now as requested.
+
+    await prisma.conversation.delete({
+      where: { id: conversationId },
+    });
+
+    // Notify other participants
+    try {
+      const io = getIO();
+      conversation.participants.forEach((p) => {
+        if (p.id !== userId) {
+          io.to(p.id.toString()).emit("conversation_deleted", {
+            id: conversationId,
+          });
+        }
+      });
+    } catch (e) {
+      console.error(
+        "Socket Emission Failed on Conversation Delete:",
+        e.message
+      );
+    }
   }
 }
 

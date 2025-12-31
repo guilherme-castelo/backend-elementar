@@ -12,6 +12,7 @@ module.exports = {
     "!**/vendor/**",
   ],
   coverageDirectory: "coverage",
+  transformIgnorePatterns: ["node_modules/(?!@faker-js)"],
   coverageReporters: ["text", "lcov"],
   testMatch: ["**/tests/**/*.test.js"],
   verbose: true,

@@ -15,11 +15,9 @@ const checkPermission = (requiredPermissionSlug) => {
       return next();
     }
 
-    return res
-      .status(403)
-      .json({
-        message: `Forbidden: requires permission '${requiredPermissionSlug}'`,
-      });
+    return res.status(403).json({
+      message: `Forbidden: requires permission '${requiredPermissionSlug}'`,
+    });
   };
 };
 

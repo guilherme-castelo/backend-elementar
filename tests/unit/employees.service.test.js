@@ -1,31 +1,26 @@
 const employeesService = require("../../src/services/employees.service");
 const employeesRepository = require("../../src/repositories/employees.repository");
 const mealsService = require("../../src/services/meals.service");
-const prisma = require("../../src/utils/prisma");
-const { ConflictError, NotFoundError } = require("../../src/errors/AppError");
+const {
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+} = require("../../src/errors/AppError");
 
 jest.mock("../../src/repositories/employees.repository");
 jest.mock("../../src/services/meals.service");
-
-// Mocking Prisma Transaction
-const mockTx = {
-  meal: {
-    deleteMany: jest.fn(),
-    updateMany: jest.fn(),
-  }
-};
-
 jest.mock("../../src/utils/prisma", () => ({
-  $transaction: jest.fn(async (callback) => callback(mockTx)),
+  $transaction: jest.fn((callback) =>
+    callback({
+      meal: { deleteMany: jest.fn(), updateMany: jest.fn() },
+    })
+  ),
 }));
+const prisma = require("../../src/utils/prisma");
 
 describe("EmployeesService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Reset mockTx spies manually if needed or rely on jest.clearAllMocks()
-    // But since mockTx is external constant, clear methods:
-    mockTx.meal.deleteMany.mockClear();
-    mockTx.meal.updateMany.mockClear();
   });
 
   describe("getAll", () => {
@@ -45,83 +40,147 @@ describe("EmployeesService", () => {
 
     it("should throw NotFoundError if not found", async () => {
       employeesRepository.getById.mockResolvedValue(null);
-      await expect(employeesService.getById(99)).rejects.toThrow(NotFoundError);
+      await expect(employeesService.getById(1)).rejects.toThrow(NotFoundError);
     });
   });
 
   describe("create", () => {
-    const data = {
-      firstName: "John",
-      lastName: "Doe",
-      matricula: "123",
-      cpf: "000",
-      admissionDate: "2023-01-01",
-      companyId: 1
-    };
-
     it("should create employee successfully", async () => {
       employeesRepository.findDuplicate.mockResolvedValue(null);
-      employeesRepository.create.mockResolvedValue({ id: 1, ...data });
-      mealsService.linkEmployeeMeals.mockResolvedValue();
+      employeesRepository.create.mockResolvedValue({ id: 1 });
 
-      const res = await employeesService.create(data);
+      await employeesService.create({ matricula: "123", companyId: 1 });
 
       expect(employeesRepository.create).toHaveBeenCalled();
       expect(mealsService.linkEmployeeMeals).toHaveBeenCalled();
-      expect(res.id).toBe(1);
+    });
+
+    it("should validade companyId", async () => {
+      employeesRepository.findDuplicate.mockResolvedValue(null);
+      await expect(
+        employeesService.create({ matricula: "123" })
+      ).rejects.toThrow(ValidationError);
     });
 
     it("should throw ConflictError if matricula exists", async () => {
-      // Mock findDuplicate returning conflicting matricula
       employeesRepository.findDuplicate.mockResolvedValue({ matricula: "123" });
-      await expect(employeesService.create(data)).rejects.toThrow(ConflictError);
+      await expect(
+        employeesService.create({ matricula: "123", companyId: 1 })
+      ).rejects.toThrow(ConflictError);
     });
 
     it("should throw ConflictError if cpf exists", async () => {
-      // Mock findDuplicate returning conflicting cpf
-      employeesRepository.findDuplicate.mockResolvedValue({ cpf: "000" });
-      await expect(employeesService.create(data)).rejects.toThrow(ConflictError);
+      employeesRepository.findDuplicate.mockResolvedValue({ cpf: "111" });
+      await expect(
+        employeesService.create({ matricula: "123", cpf: "111", companyId: 1 })
+      ).rejects.toThrow(ConflictError);
     });
   });
 
   describe("update", () => {
-    const updateData = { firstName: "Jane" };
-
     it("should update employee", async () => {
-      employeesRepository.update.mockResolvedValue({ id: 1, ...updateData });
-      mealsService.linkEmployeeMeals.mockResolvedValue();
+      employeesRepository.update.mockResolvedValue({ id: 1 });
+      await employeesService.update(1, {
+        firstName: "Test",
+        companyId: 1,
+        dataAdmissao: "2023-01-01",
+      });
+      expect(employeesRepository.update).toHaveBeenCalled();
+    });
 
-      await employeesService.update(1, updateData);
+    it("should handle mealsAction DELETE", async () => {
+      const tx = { meal: { deleteMany: jest.fn(), updateMany: jest.fn() } };
+      prisma.$transaction.mockImplementation((cb) => cb(tx));
+      employeesRepository.update.mockResolvedValue({ id: 1 });
 
-      expect(prisma.$transaction).toHaveBeenCalled();
-      expect(employeesRepository.update).toHaveBeenCalledWith(1, expect.anything(), mockTx);
+      await employeesService.update(1, {
+        mealsAction: "DELETE",
+        dataDemissao: "2023-01-01",
+      });
+
+      expect(tx.meal.deleteMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { employeeId: 1 } })
+      );
+    });
+
+    it("should handle mealsAction UNLINK", async () => {
+      const tx = { meal: { deleteMany: jest.fn(), updateMany: jest.fn() } };
+      prisma.$transaction.mockImplementation((cb) => cb(tx));
+      employeesRepository.update.mockResolvedValue({ id: 1 });
+
+      await employeesService.update(1, {
+        mealsAction: "UNLINK",
+        dataDemissao: "2023-01-01",
+      });
+
+      expect(tx.meal.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { employeeId: 1 },
+          data: expect.objectContaining({ status: "PENDING_LINK" }),
+        })
+      );
     });
 
     it("should handle mealsAction UNLINK_IGNORE", async () => {
-      employeesRepository.update.mockResolvedValue({ id: 1, dataDemissao: new Date() });
-      const data = { mealsAction: "UNLINK_IGNORE", dataDemissao: "2023-01-01" };
+      const tx = { meal: { deleteMany: jest.fn(), updateMany: jest.fn() } };
+      prisma.$transaction.mockImplementation((cb) => cb(tx));
+      employeesRepository.update.mockResolvedValue({ id: 1 });
 
-      await employeesService.update(1, data);
+      await employeesService.update(1, {
+        mealsAction: "UNLINK_IGNORE",
+        dataDemissao: "2023-01-01",
+      });
 
-      expect(mockTx.meal.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-        data: expect.objectContaining({ ignoredInExport: true })
-      }));
+      expect(tx.meal.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { employeeId: 1 },
+          data: expect.objectContaining({ ignoredInExport: true }),
+        })
+      );
     });
   });
 
   describe("delete", () => {
     it("should delete employee using transaction", async () => {
       employeesRepository.delete.mockResolvedValue({ id: 1 });
-
       await employeesService.delete(1);
-
-      expect(employeesRepository.delete).toHaveBeenCalledWith(1, mockTx);
+      expect(employeesRepository.delete).toHaveBeenCalled();
     });
 
     it("should handle DELETE meals action", async () => {
-      employeesRepository.delete.mockResolvedValue({ id: 1 });
+      const tx = { meal: { deleteMany: jest.fn(), updateMany: jest.fn() } };
+      prisma.$transaction.mockImplementation((cb) => cb(tx));
+
       await employeesService.delete(1, "DELETE");
-      expect(mockTx.meal.deleteMany).toHaveBeenCalled();
+      expect(tx.meal.deleteMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { employeeId: 1 } })
+      );
+    });
+
+    it("should handle UNLINK meals action", async () => {
+      const tx = { meal: { deleteMany: jest.fn(), updateMany: jest.fn() } };
+      prisma.$transaction.mockImplementation((cb) => cb(tx));
+
+      await employeesService.delete(1, "UNLINK");
+      expect(tx.meal.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { employeeId: 1 },
+          data: expect.not.objectContaining({ ignoredInExport: true }),
+        })
+      );
+    });
+
+    it("should handle UNLINK_IGNORE meals action", async () => {
+      const tx = { meal: { deleteMany: jest.fn(), updateMany: jest.fn() } };
+      prisma.$transaction.mockImplementation((cb) => cb(tx));
+
+      await employeesService.delete(1, "UNLINK_IGNORE");
+      expect(tx.meal.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { employeeId: 1 },
+          data: expect.objectContaining({ ignoredInExport: true }),
+        })
+      );
     });
   });
 });

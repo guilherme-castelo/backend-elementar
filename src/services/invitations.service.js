@@ -1,6 +1,7 @@
 const prisma = require("../utils/prisma");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
+const rolesService = require("./roles.service");
 
 // Mock Email Service
 const sendEmail = async (to, subject, text) => {
@@ -14,6 +15,12 @@ exports.create = async (companyId, { email, roleId }) => {
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
     throw new Error("User with this email already exists.");
+  }
+
+  // Validate Scope
+  const isValid = await rolesService.validateScope(roleId, companyId);
+  if (!isValid) {
+    throw new Error("Role is not valid for this company scope.");
   }
 
   // Generate secure token
@@ -65,6 +72,16 @@ exports.accept = async (token, { name, password }) => {
         email: invite.email,
         name,
         password: hashedPassword,
+        companyId: invite.companyId,
+        roleId: invite.roleId,
+        isActive: true,
+      },
+    });
+
+    // Create UserMembership
+    await tx.userMembership.create({
+      data: {
+        userId: newUser.id,
         companyId: invite.companyId,
         roleId: invite.roleId,
         isActive: true,

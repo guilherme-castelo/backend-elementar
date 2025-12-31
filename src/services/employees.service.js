@@ -4,7 +4,11 @@ const employeesRepository = require("../repositories/employees.repository");
 // We'll import prisma just for $transaction
 const prisma = require("../utils/prisma");
 const mealsService = require("./meals.service");
-const { ConflictError, NotFoundError } = require("../errors/AppError");
+const {
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+} = require("../errors/AppError");
 
 class EmployeesService {
   async getAll(filters) {
@@ -23,23 +27,39 @@ class EmployeesService {
 
   async create(data) {
     // Unique Check
-    const existing = await employeesRepository.findDuplicate(data.matricula, data.cpf);
+    const existing = await employeesRepository.findDuplicate(
+      data.matricula,
+      data.cpf
+    );
 
     if (existing) {
       if (existing.matricula === data.matricula)
-        throw new ConflictError(`Employee with matricula ${data.matricula} already exists.`);
+        throw new ConflictError(
+          `Employee with matricula ${data.matricula} already exists.`
+        );
       if (data.cpf && existing.cpf === data.cpf)
-        throw new ConflictError(`Employee with CPF ${data.cpf} already exists.`);
+        throw new ConflictError(
+          `Employee with CPF ${data.cpf} already exists.`
+        );
     }
 
     // Ensure dates are Dates
+    const companyId = parseInt(data.companyId);
+    if (isNaN(companyId)) {
+      throw new ValidationError("Company ID is required.");
+    }
+
     const payload = {
       ...data,
-      companyId: parseInt(data.companyId),
-      dataAdmissao: data.dataAdmissao ? new Date(data.dataAdmissao) : new Date(),
+      companyId,
+      dataAdmissao: data.dataAdmissao
+        ? new Date(data.dataAdmissao)
+        : new Date(),
       dataDemissao: data.dataDemissao ? new Date(data.dataDemissao) : null,
       cpf: data.cpf ? data.cpf : null,
     };
+
+    delete payload.mealsAction;
 
     // We can move meal linking to an event or keep it here. Keeping it here for now.
     const created = await employeesRepository.create(payload);
@@ -52,8 +72,10 @@ class EmployeesService {
   async update(id, data) {
     const payload = { ...data };
     if (payload.companyId) payload.companyId = parseInt(payload.companyId);
-    if (payload.dataAdmissao) payload.dataAdmissao = new Date(payload.dataAdmissao);
-    if (payload.dataDemissao) payload.dataDemissao = new Date(payload.dataDemissao);
+    if (payload.dataAdmissao)
+      payload.dataAdmissao = new Date(payload.dataAdmissao);
+    if (payload.dataDemissao)
+      payload.dataDemissao = new Date(payload.dataDemissao);
 
     // Remove non-schema fields
     delete payload.mealsAction;
@@ -70,15 +92,15 @@ class EmployeesService {
       // mealsAction: 'DELETE' | 'UNLINK' | 'UNLINK_IGNORE'
 
       if (mealsAction && payload.dataDemissao) {
-        // We delegate meal actions to MealsService? 
+        // We delegate meal actions to MealsService?
         // Ideally MealsService should accept a transaction/client to perform ops?
         // Or we use raw queries here since MealsService assumes default prisma client?
         // Refactoring MealsService to accept TX is good practice.
-        // For now, I'll allow "mealsService" methods to handle this, 
+        // For now, I'll allow "mealsService" methods to handle this,
         // BUT standard service methods don't take TX.
         // This is where "God Service" breaks down. logic should be in proper domains.
 
-        // I will act directly on Meal table here via prisma tx OR 
+        // I will act directly on Meal table here via prisma tx OR
         // I should have a MealsRepository method that accepts TX.
         // As I haven't refactored MealsRepo yet, I will execute raw queries here using TX
         // mirroring the old logic, but cleaner.
@@ -93,7 +115,11 @@ class EmployeesService {
         } else if (mealsAction === "UNLINK_IGNORE") {
           await tx.meal.updateMany({
             where: { employeeId: parseInt(id) },
-            data: { employeeId: null, status: "PENDING_LINK", ignoredInExport: true },
+            data: {
+              employeeId: null,
+              status: "PENDING_LINK",
+              ignoredInExport: true,
+            },
           });
         }
       }
@@ -123,7 +149,11 @@ class EmployeesService {
         } else if (mealsAction === "UNLINK_IGNORE") {
           await tx.meal.updateMany({
             where: { employeeId: parseInt(id) },
-            data: { employeeId: null, status: "PENDING_LINK", ignoredInExport: true },
+            data: {
+              employeeId: null,
+              status: "PENDING_LINK",
+              ignoredInExport: true,
+            },
           });
         }
       }

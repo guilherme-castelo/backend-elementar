@@ -21,6 +21,7 @@ describe("Integration: Permission Flow", () => {
         id: 1,
         isActive: true,
         role: { permissions: [] },
+        companyId: 1,
       });
       const token = generateToken({ id: 1 });
       await request(app)
@@ -34,6 +35,7 @@ describe("Integration: Permission Flow", () => {
         id: 1,
         isActive: true,
         role: { permissions: [{ slug: "feature:manage" }] },
+        companyId: 1,
       });
       prismaMock.feature.findMany.mockResolvedValue([]);
 

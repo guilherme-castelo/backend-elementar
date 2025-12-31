@@ -62,6 +62,12 @@ describe("SaaS Integration Flow", () => {
       // 4. Invitation Service: Check if user exists (Should be null)
       prismaMock.user.findUnique.mockResolvedValueOnce(null);
 
+      // 5. Role Scope Validation
+      prismaMock.role.findUnique.mockResolvedValueOnce({
+        id: 2,
+        companies: [{ id: 1 }],
+      });
+
       prismaMock.invitation.create.mockResolvedValue({ token: "abc" });
 
       const token = generateToken(1, 1, "Admin");

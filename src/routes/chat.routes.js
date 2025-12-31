@@ -3,180 +3,46 @@ const router = express.Router();
 const controller = require("../controllers/chat.controller");
 const authGuard = require("../middlewares/auth");
 
+const checkPermission = require("../middlewares/permission");
+
 router.use(authGuard);
 
-/**
- * @swagger
- * tags:
- *   name: Chat
- *   description: Chat and messaging
- */
+router.get(
+  "/conversations",
+  checkPermission("chat:read"),
+  controller.getConversations
+);
 
-/**
- * @swagger
- * /chat/conversations:
- *   get:
- *     summary: Get all conversations
- *     tags: [Chat]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of conversations
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Conversation'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *   post:
- *     summary: Create a new conversation
- *     tags: [Chat]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - participantIds
- *             properties:
- *               participantIds:
- *                 type: array
- *                 items:
- *                   type: string
- *     responses:
- *       201:
- *         description: Conversation created
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Conversation'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.get("/conversations", controller.getConversations);
+router.get("/messages", checkPermission("chat:read"), controller.getMessages);
+router.post("/messages", checkPermission("chat:write"), controller.sendMessage);
+router.delete(
+  "/messages/:messageId",
+  checkPermission("chat:delete"),
+  controller.deleteMessage
+);
 
-/**
- * @swagger
- * /chat/messages:
- *   get:
- *     summary: Get messages
- *     tags: [Chat]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: conversationId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: List of messages
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Message'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *   post:
- *     summary: Send a message
- *     tags: [Chat]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - conversationId
- *               - content
- *             properties:
- *               conversationId:
- *                 type: string
- *               content:
- *                 type: string
- *     responses:
- *       201:
- *         description: Message sent
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Message'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.get("/messages", controller.getMessages);
-router.post("/messages", controller.sendMessage);
+router.post(
+  "/conversations",
+  checkPermission("chat:write"),
+  controller.createConversation
+);
 
-router.post("/conversations", controller.createConversation);
+router.post(
+  "/conversations/:conversationId/read",
+  checkPermission("chat:read"),
+  controller.markAsRead
+);
 
-/**
- * @swagger
- * /chat/conversations/{conversationId}/read:
- *   post:
- *     summary: Mark conversation as read
- *     tags: [Chat]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: conversationId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Marked as read
- */
-router.post("/conversations/:conversationId/read", controller.markAsRead);
-
-/**
- * @swagger
- * /chat/conversations/{conversationId}/delivered:
- *   post:
- *     summary: Mark conversation as delivered
- *     tags: [Chat]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: conversationId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Marked as delivered
- */
 router.post(
   "/conversations/:conversationId/delivered",
+  checkPermission("chat:read"),
   controller.markAsDelivered
+);
+
+router.delete(
+  "/conversations/:conversationId",
+  checkPermission("chat:delete"),
+  controller.deleteConversation
 );
 
 /**
@@ -198,6 +64,10 @@ router.post(
  *                 count:
  *                   type: integer
  */
-router.get("/unread-count", controller.getUnreadCount);
+router.get(
+  "/unread-count",
+  checkPermission("chat:read"),
+  controller.getUnreadCount
+);
 
 module.exports = router;

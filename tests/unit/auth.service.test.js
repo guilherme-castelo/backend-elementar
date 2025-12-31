@@ -1,71 +1,91 @@
-const { mockReset } = require("jest-mock-extended");
-// Use manual mock
-jest.mock("../../src/utils/prisma");
-
-// Explicit mocks for deps
-jest.mock("bcryptjs", () => ({
-  compare: jest.fn(),
-  hash: jest.fn(),
-}));
-jest.mock("jsonwebtoken", () => ({
-  sign: jest.fn(),
-  verify: jest.fn(),
-}));
-
-const prisma = require("../../src/utils/prisma");
 const authService = require("../../src/services/auth.service");
+const usersService = require("../../src/services/users.service");
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
+const { UnauthorizedError } = require("../../src/errors/AppError");
+
+jest.mock("../../src/services/users.service");
+jest.mock("bcryptjs");
+jest.mock("../../src/utils/prisma", () => ({
+  userMembership: { findMany: jest.fn() },
+  role: { findUnique: jest.fn() },
+}));
+const prisma = require("../../src/utils/prisma");
 
 describe("AuthService", () => {
   beforeEach(() => {
-    mockReset(prisma);
     jest.clearAllMocks();
+    bcrypt.compare.mockResolvedValue(true);
   });
 
   describe("login", () => {
     it("should login successfully with valid credentials", async () => {
-      const mockUser = {
+      usersService.findByEmail.mockResolvedValue({
         id: 1,
-        email: "test@example.com",
-        password: "hashedpassword",
+        password: "hash",
         isActive: true,
-        companyId: 1,
-        name: "Test User",
-        role: { name: "User", permissions: [{ slug: "test:read" }] },
-      };
-
-      prisma.user.findUnique.mockResolvedValue(mockUser);
-      bcrypt.compare.mockResolvedValue(true);
-      jwt.sign.mockReturnValue("mock-token");
-
-      const result = await authService.login("test@example.com", "password");
-
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({
-        where: { email: "test@example.com" },
-        include: { role: { include: { permissions: true } } },
+        role: { name: "Admin" },
       });
-      expect(result).toHaveProperty("token", "mock-token");
-      expect(result.permissions).toContain("test:read");
+      prisma.userMembership.findMany.mockResolvedValue([]);
+
+      const res = await authService.login("email", "pass");
+
+      expect(res).toHaveProperty("token");
+      expect(res.user.role).toEqual({ id: undefined, name: "Admin" }); // Mock role had no id
     });
 
     it("should throw error if user not active", async () => {
-      const mockUser = { id: 1, isActive: false };
-      prisma.user.findUnique.mockResolvedValue(mockUser);
-
-      await expect(
-        authService.login("test@example.com", "password")
-      ).rejects.toThrow("User is inactive");
+      usersService.findByEmail.mockResolvedValue({ isActive: false });
+      await expect(authService.login("e", "p")).rejects.toThrow(
+        UnauthorizedError
+      );
     });
 
     it("should throw error if password invalid", async () => {
-      const mockUser = { id: 1, isActive: true, password: "hashed" };
-      prisma.user.findUnique.mockResolvedValue(mockUser);
+      usersService.findByEmail.mockResolvedValue({
+        isActive: true,
+        password: "h",
+      });
       bcrypt.compare.mockResolvedValue(false);
+      await expect(authService.login("e", "p")).rejects.toThrow(
+        UnauthorizedError
+      );
+    });
 
-      await expect(
-        authService.login("test@example.com", "wrong")
-      ).rejects.toThrow("Invalid credentials");
+    it("should throw error if user not found", async () => {
+      usersService.findByEmail.mockResolvedValue(null);
+      await expect(authService.login("e", "p")).rejects.toThrow(
+        UnauthorizedError
+      );
+    });
+  });
+
+  describe("register", () => {
+    it("should register", async () => {
+      usersService.create.mockResolvedValue({ id: 1, role: {} });
+      prisma.userMembership.findMany.mockResolvedValue([]);
+      prisma.role.findUnique.mockResolvedValue({ id: 1, name: "Admin" });
+
+      const res = await authService.register({ email: "test" });
+      expect(res).toHaveProperty("token");
+    });
+  });
+
+  describe("me", () => {
+    it("should return user data", async () => {
+      usersService.getById.mockResolvedValue({
+        id: 1,
+        role: { permissions: [{ slug: "p1" }] },
+      });
+
+      const res = await authService.me(1);
+
+      expect(res.permissions).toEqual(["p1"]);
+    });
+
+    it("should handle empty permissions", async () => {
+      usersService.getById.mockResolvedValue({ id: 1 });
+      const res = await authService.me(1);
+      expect(res.permissions).toEqual([]);
     });
   });
 });

@@ -17,6 +17,7 @@ describe("Integration: Companies Routes", () => {
     role: {
       permissions: [{ slug: "company:read" }, { slug: "company:inactivate" }],
     },
+    companyId: 1,
   };
 
   it("should list companies", async () => {

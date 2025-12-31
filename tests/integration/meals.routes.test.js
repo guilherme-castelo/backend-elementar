@@ -21,6 +21,7 @@ describe("Integration: Meals Routes", () => {
     role: {
       permissions: [permissionRegister, permissionReport],
     },
+    companyId: 1,
   };
 
   describe("POST /meals", () => {

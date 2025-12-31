@@ -77,6 +77,15 @@ async function main() {
         { name: "Integração Domínio", slug: "integration:dominio" },
       ],
     },
+    {
+      name: "Chat / Mensagens",
+      slug: "chat",
+      permissions: [
+        { name: "Acessar Chat", slug: "chat:read" },
+        { name: "Enviar Mensagem", slug: "chat:write" },
+        { name: "Deletar Mensagem", slug: "chat:delete" },
+      ],
+    },
   ];
 
   for (const feat of features) {
@@ -131,6 +140,9 @@ async function main() {
     "meal:read",
     "user:read",
     "employee:read",
+    "chat:read",
+    "chat:write",
+    "chat:delete",
   ];
   const basicPermissions = allPermissions.filter((p) =>
     basicSlugs.includes(p.slug)
@@ -182,13 +194,24 @@ async function main() {
     },
   });
 
-  // 3. Create Default Company & User
+  // 3. Create Default Group & Company
+  const group = await prisma.group.upsert({
+    where: { slug: "elementar-hq" },
+    update: {},
+    create: {
+      name: "Grupo Elementar",
+      slug: "elementar-hq",
+    },
+  });
+
   const company = await prisma.company.upsert({
     where: { id: 1 },
-    update: {},
+    update: { groupId: group.id, type: "MATRIZ" },
     create: {
       name: "Elementar Corp",
       cnpj: "00.000.000/0001-00",
+      groupId: group.id,
+      type: "MATRIZ",
     },
   });
 
@@ -196,13 +219,98 @@ async function main() {
 
   const adminUser = await prisma.user.upsert({
     where: { email: "admin@empresa.test" },
-    update: { roleId: adminRole.id }, // Ensure admin has role
+    update: {
+      roleId: adminRole.id,
+      companyId: company.id,
+      password: hashedPassword,
+    },
     create: {
       name: "Administrador",
       email: "admin@empresa.test",
       password: hashedPassword,
       companyId: company.id,
       roleId: adminRole.id,
+    },
+  });
+
+  // 4. Create Memberships
+  await prisma.userMembership.upsert({
+    where: {
+      userId_companyId: {
+        userId: adminUser.id,
+        companyId: company.id,
+      },
+    },
+    update: {
+      roleId: adminRole.id,
+      isActive: true,
+    },
+    create: {
+      userId: adminUser.id,
+      companyId: company.id,
+      roleId: adminRole.id,
+      isActive: true,
+    },
+  });
+
+  // Create a second test company for verification
+  const company2 = await prisma.company.upsert({
+    where: { id: 2 },
+    update: { groupId: group.id, type: "FILIAL" },
+    create: {
+      name: "Elementar Filial SP",
+      cnpj: "00.000.000/0002-00",
+      groupId: group.id,
+      type: "FILIAL",
+    },
+  });
+
+  // Give Admin access to second company as well (as Manager role there for testing)
+  await prisma.userMembership.upsert({
+    where: {
+      userId_companyId: {
+        userId: adminUser.id,
+        companyId: company2.id,
+      },
+    },
+    update: {
+      roleId: adminRole.id, // Using Admin role here too for simplicity
+      isActive: true,
+    },
+    create: {
+      userId: adminUser.id,
+      companyId: company2.id,
+      roleId: adminRole.id,
+      isActive: true,
+    },
+  });
+
+  // 5. Assign Manager & Role Scopes
+  // Make Admin user the manager of Company 1
+  await prisma.company.update({
+    where: { id: company.id },
+    data: {
+      managerId: adminUser.id,
+    },
+  });
+
+  // Scope Admin Role to both companies
+  await prisma.role.update({
+    where: { id: adminRole.id },
+    data: {
+      companies: {
+        connect: [{ id: company.id }, { id: company2.id }],
+      },
+    },
+  });
+
+  // Scope User Role to Company 1 only
+  await prisma.role.update({
+    where: { id: userRole.id },
+    data: {
+      companies: {
+        connect: [{ id: company.id }],
+      },
     },
   });
 
