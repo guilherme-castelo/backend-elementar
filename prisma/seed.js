@@ -133,74 +133,74 @@ async function main() {
 
   // User Role (Basic access)
   // Filter permissions for basic user
-  const basicSlugs = [
-    "task:create",
-    "task:read",
-    "task:update",
-    "meal:read",
-    "user:read",
-    "employee:read",
-    "chat:read",
-    "chat:write",
-    "chat:delete",
-  ];
-  const basicPermissions = allPermissions.filter((p) =>
-    basicSlugs.includes(p.slug)
-  );
-
-  const userRole = await prisma.role.upsert({
-    where: { name: "User" },
-    update: {
-      permissions: {
-        set: basicPermissions.map((p) => ({ id: p.id })),
-      },
-    },
-    create: {
-      name: "User",
-      description: "Usuário padrão do sistema",
-      permissions: {
-        connect: basicPermissions.map((p) => ({ id: p.id })),
-      },
-    },
-  });
-
-  // Manage Role (HR Manager)
-  const managerSlugs = [
-    ...basicSlugs,
-    "employee:create",
-    "employee:update",
-    "meal:create",
-    "meal:delete",
-    "meal:update",
-    "integration:dominio",
-  ];
-  const managerPermissions = allPermissions.filter((p) =>
-    managerSlugs.includes(p.slug)
-  );
-
-  await prisma.role.upsert({
-    where: { name: "Manager" },
-    update: {
-      permissions: {
-        set: managerPermissions.map((p) => ({ id: p.id })),
-      },
-    },
-    create: {
-      name: "Manager",
-      description: "Gestor de RH e Operações",
-      permissions: {
-        connect: managerPermissions.map((p) => ({ id: p.id })),
-      },
-    },
-  });
+  //const basicSlugs = [
+  //  "task:create",
+  //  "task:read",
+  //  "task:update",
+  //  "meal:read",
+  //  "user:read",
+  //  "employee:read",
+  //  "chat:read",
+  //  "chat:write",
+  //  "chat:delete",
+  //];
+  //const basicPermissions = allPermissions.filter((p) =>
+  //  basicSlugs.includes(p.slug)
+  //);
+//
+  //const userRole = await prisma.role.upsert({
+  //  where: { name: "User" },
+  //  update: {
+  //    permissions: {
+  //      set: basicPermissions.map((p) => ({ id: p.id })),
+  //    },
+  //  },
+  //  create: {
+  //    name: "User",
+  //    description: "Usuário padrão do sistema",
+  //    permissions: {
+  //      connect: basicPermissions.map((p) => ({ id: p.id })),
+  //    },
+  //  },
+  //});
+//
+  //// Manage Role (HR Manager)
+  //const managerSlugs = [
+  //  ...basicSlugs,
+  //  "employee:create",
+  //  "employee:update",
+  //  "meal:create",
+  //  "meal:delete",
+  //  "meal:update",
+  //  "integration:dominio",
+  //];
+  //const managerPermissions = allPermissions.filter((p) =>
+  //  managerSlugs.includes(p.slug)
+  //);
+//
+  //await prisma.role.upsert({
+  //  where: { name: "Manager" },
+  //  update: {
+  //    permissions: {
+  //      set: managerPermissions.map((p) => ({ id: p.id })),
+  //    },
+  //  },
+  //  create: {
+  //    name: "Manager",
+  //    description: "Gestor de RH e Operações",
+  //    permissions: {
+  //      connect: managerPermissions.map((p) => ({ id: p.id })),
+  //    },
+  //  },
+  //});
 
   // 3. Create Default Group & Company
   const group = await prisma.group.upsert({
-    where: { slug: "elementar-hq" },
+    where: { slug: "brasildis" },
     update: {},
     create: {
-      name: "Grupo Elementar",
-      slug: "elementar-hq",
+      name: "Grupo Brasil",
+      slug: "brasildis",
     },
   });
 
@@ -208,8 +208,8 @@ async function main() {
     where: { id: 1 },
     update: { groupId: group.id, type: "MATRIZ" },
     create: {
-      name: "Elementar Corp",
-      cnpj: "00.000.000/0001-00",
+      name: "Brasil Super Atacado",
+      cnpj: "10.964.693/0001-96",
       groupId: group.id,
       type: "MATRIZ",
     },
@@ -218,7 +218,7 @@ async function main() {
   const hashedPassword = await bcrypt.hash("admin", 10);
 
   const adminUser = await prisma.user.upsert({
-    where: { email: "admin@empresa.test" },
+    where: { email: "spa.ti@brasildistribuidora.com" },
     update: {
       roleId: adminRole.id,
       companyId: company.id,
@@ -226,7 +226,7 @@ async function main() {
     },
     create: {
       name: "Administrador",
-      email: "admin@empresa.test",
+      email: "spa.ti@brasildistribuidora.com",
       password: hashedPassword,
       companyId: company.id,
       roleId: adminRole.id,
@@ -253,38 +253,6 @@ async function main() {
     },
   });
 
-  // Create a second test company for verification
-  const company2 = await prisma.company.upsert({
-    where: { id: 2 },
-    update: { groupId: group.id, type: "FILIAL" },
-    create: {
-      name: "Elementar Filial SP",
-      cnpj: "00.000.000/0002-00",
-      groupId: group.id,
-      type: "FILIAL",
-    },
-  });
-
-  // Give Admin access to second company as well (as Manager role there for testing)
-  await prisma.userMembership.upsert({
-    where: {
-      userId_companyId: {
-        userId: adminUser.id,
-        companyId: company2.id,
-      },
-    },
-    update: {
-      roleId: adminRole.id, // Using Admin role here too for simplicity
-      isActive: true,
-    },
-    create: {
-      userId: adminUser.id,
-      companyId: company2.id,
-      roleId: adminRole.id,
-      isActive: true,
-    },
-  });
-
   // 5. Assign Manager & Role Scopes
   // Make Admin user the manager of Company 1
   await prisma.company.update({
@@ -299,20 +267,20 @@ async function main() {
     where: { id: adminRole.id },
     data: {
       companies: {
-        connect: [{ id: company.id }, { id: company2.id }],
+        connect: [{ id: company.id }],
       },
     },
   });
 
   // Scope User Role to Company 1 only
-  await prisma.role.update({
-    where: { id: userRole.id },
-    data: {
-      companies: {
-        connect: [{ id: company.id }],
-      },
-    },
-  });
+  //await prisma.role.update({
+  //  where: { id: userRole.id },
+  //  data: {
+  //    companies: {
+  //      connect: [{ id: company.id }],
+  //    },
+  //  },
+  //});
 
   console.log("Seed completed successfully.");
 }
