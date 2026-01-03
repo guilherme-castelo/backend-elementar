@@ -1,19 +1,62 @@
-version: "3.8"
-
 services:
+  app:
+    build: .
+    container_name: elementar_backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Use service name 'db' as host
+      DATABASE_URL: mysql://${DB_USER}:${DB_PASSWORD}@db:3306/${DB_NAME}
+      PORT: 3000
+      JWT_SECRET: ${JWT_SECRET}
+      NODE_ENV: production
+    depends_on:
+      - db
+    networks:
+      - backend_net
+
   db:
     image: mysql:8.0
     container_name: elementar_db
-    restart: always
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: elementar
-      MYSQL_USER: user
-      MYSQL_PASSWORD: password
-    ports:
-      - "3306:3306"
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
     volumes:
-      - db_data:/var/lib/mysql
+      - ./db/mysql:/var/lib/mysql
+    networks:
+      - backend_net
 
-volumes:
-  db_data:
+  backup:
+    image: debian:bookworm-slim
+    container_name: elementar_backup
+    restart: unless-stopped
+    depends_on:
+      - db
+    volumes:
+      - ./db/backups/mysql:/backups
+      - ./scripts/run_backup.sh:/usr/local/bin/run_backup.sh
+    environment:
+      MYSQL_HOST: db
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+    # Crontab strategy: Run everyday at 02:00 AM
+    command: >
+      sh -c "
+      apt-get update && apt-get install -y default-mysql-client cron &&
+      chmod +x /usr/local/bin/run_backup.sh &&
+      echo '0 2 * * * /usr/local/bin/run_backup.sh >> /var/log/backup.log 2>&1' > /etc/cron.d/backup-cron &&
+      chmod 0644 /etc/cron.d/backup-cron &&
+      crontab /etc/cron.d/backup-cron &&
+      cron -f
+      "
+    networks:
+      - backend_net
+
+networks:
+  backend_net:
+    driver: bridge

@@ -35,23 +35,23 @@ O sistema foi projetado para resolver problemas de **segurança** e **escalabili
 - **Gestão de Tarefas (Kanban)**: Criação, atribuição e acompanhamento de status de tarefas.
 - **Gestão de RH**: Cadastro de funcionários, admissão e relatórios.
 - **Refeitório Inteligente**:
-    - Registro diário com trava de duplicidade.
-    - Snapshots de dados (cargo/setor) no momento do consumo.
-    - Relatórios filtrados por período.
+  - Registro diário com trava de duplicidade.
+  - Snapshots de dados (cargo/setor) no momento do consumo.
+  - Relatórios filtrados por período.
 - **Soft Delete**: Preservação de histórico para Auditoria (`isActive: false`).
 
 ---
 
 ## 🛠️ Stack Tecnológica
 
-| Camada        | Tecnologia       | Detalhes                                                       |
-| :------------ | :--------------- | :------------------------------------------------------------- |
-| **Runtime**   | Node.js          | Ambiente de execução JavaScript                                |
-| **Framework** | Express.js       | Servidor Web RESTful                                           |
-| **Database**  | Prisma ORM (via Repositories)       | Cliente de Banco de Dados (SQLite em Dev / PostgreSQL em Prod) |
-| **Auth**      | JWT + bcryptjs   | Autenticação Stateless e Hashing de senhas                     |
-| **Real-time** | Socket.io        | Chat e Notificações                                            |
-| **Testes**    | Jest + Supertest | Suíte de testes (Unitários e Integração)                       |
+| Camada        | Tecnologia                    | Detalhes                                                       |
+| :------------ | :---------------------------- | :------------------------------------------------------------- |
+| **Runtime**   | Node.js                       | Ambiente de execução JavaScript                                |
+| **Framework** | Express.js                    | Servidor Web RESTful                                           |
+| **Database**  | Prisma ORM (via Repositories) | Cliente de Banco de Dados (SQLite em Dev / PostgreSQL em Prod) |
+| **Auth**      | JWT + bcryptjs                | Autenticação Stateless e Hashing de senhas                     |
+| **Real-time** | Socket.io                     | Chat e Notificações                                            |
+| **Testes**    | Jest + Supertest              | Suíte de testes (Unitários e Integração)                       |
 
 ---
 
@@ -103,6 +103,47 @@ O sistema foi projetado para resolver problemas de **segurança** e **escalabili
 
 ---
 
+## 🐳 Produção com Docker
+
+A infraestrutura foi containerizada para facilitar o deploy e garantir consistência.
+
+### Comandos de Deploy
+
+1.  **Construir e Iniciar**:
+
+    ```bash
+    docker-compose up -d --build
+    ```
+
+    Isso iniciará os serviços: `app` (Backend), `db` (MySQL) e `backup` (Rotina diária).
+
+2.  **Parar**:
+    ```bash
+    docker-compose down
+    ```
+
+### Backup Automático
+
+O sistema possui um container dedicado para backups do MySQL.
+
+- **Frequência**: Diário às 02:00 AM.
+- **Retenção**: Mantém os últimos 7 dias.
+- **Localização**: Os arquivos `.sql` são salvos em `./db/backups/mysql` (Volume persistente).
+- **Execução Manual** (para testes ou emergências):
+  ```bash
+  docker-compose exec backup sh -c "/usr/local/bin/run_backup.sh"
+  ```
+
+### Estrutura dos Containers
+
+| Serviço  | Imagem                 | Porta (Host) | Descrição                                      |
+| :------- | :--------------------- | :----------- | :--------------------------------------------- |
+| `app`    | `node:20-slim`         | 3000         | API Backend (Express + Prisma)                 |
+| `db`     | `mysql:8.0`            | -            | Banco de Dados (Acessível apenas internamente) |
+| `backup` | `debian:bookworm-slim` | -            | Agente de Backup e Cron                        |
+
+---
+
 ## 🔒 Segurança e RBAC
 
 O sistema utiliza um modelo hierárquico: **Feature -> Permission -> Role -> User**.
@@ -150,21 +191,23 @@ O backend utiliza uma estratégia centralizada de tratamento de erros para garan
 
 Use estas classes ao lançar exceções nos Services:
 
-| Classe              | Status Code | Uso                                      |
-| :------------------ | :---------- | :--------------------------------------- |
-| `AppError`          | 500         | Erro genérico (base)                     |
-| `ValidationError`   | 400         | Dados de entrada inválidos               |
-| `UnauthorizedError` | 401         | Falha de autenticação                    |
-| `ForbiddenError`    | 403         | Sem permissão (RBAC)                     |
-| `NotFoundError`     | 404         | Recurso não encontrado                   |
-| `ConflictError`     | 409         | Conflito de dados (ex: email duplicado)  |
+| Classe              | Status Code | Uso                                     |
+| :------------------ | :---------- | :-------------------------------------- |
+| `AppError`          | 500         | Erro genérico (base)                    |
+| `ValidationError`   | 400         | Dados de entrada inválidos              |
+| `UnauthorizedError` | 401         | Falha de autenticação                   |
+| `ForbiddenError`    | 403         | Sem permissão (RBAC)                    |
+| `NotFoundError`     | 404         | Recurso não encontrado                  |
+| `ConflictError`     | 409         | Conflito de dados (ex: email duplicado) |
 
 **Exemplo:**
+
 ```javascript
 if (!user) throw new NotFoundError("Usuário não encontrado");
 ```
 
 Todas as exceções são capturadas pelo middleware `src/middlewares/error.js`, que formata a resposta JSON padrão:
+
 ```json
 {
   "status": "error",
@@ -311,7 +354,6 @@ class ProductsService {
 module.exports = new ProductsService();
 ```
 
-
 ---
 
 ### Passo 4: Camada de Controller (`controllers/products.controller.js`)
@@ -388,11 +430,12 @@ describe("ProductsService", () => {
     const result = await productsService.create(data);
 
     expect(result.id).toBe(1);
-    expect(productsRepository.create).toHaveBeenCalledWith(expect.objectContaining({ name: "Prod A" }));
+    expect(productsRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Prod A" })
+    );
   });
 });
 ```
-
 
 ---
 
