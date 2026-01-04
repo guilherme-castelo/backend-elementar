@@ -1,7 +1,9 @@
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  log: ["query", "info", "warn", "error"],
+});
 
 async function main() {
   console.log("Seeding database...");
@@ -130,69 +132,6 @@ async function main() {
       },
     },
   });
-
-  // User Role (Basic access)
-  // Filter permissions for basic user
-  //const basicSlugs = [
-  //  "task:create",
-  //  "task:read",
-  //  "task:update",
-  //  "meal:read",
-  //  "user:read",
-  //  "employee:read",
-  //  "chat:read",
-  //  "chat:write",
-  //  "chat:delete",
-  //];
-  //const basicPermissions = allPermissions.filter((p) =>
-  //  basicSlugs.includes(p.slug)
-  //);
-//
-  //const userRole = await prisma.role.upsert({
-  //  where: { name: "User" },
-  //  update: {
-  //    permissions: {
-  //      set: basicPermissions.map((p) => ({ id: p.id })),
-  //    },
-  //  },
-  //  create: {
-  //    name: "User",
-  //    description: "Usuário padrão do sistema",
-  //    permissions: {
-  //      connect: basicPermissions.map((p) => ({ id: p.id })),
-  //    },
-  //  },
-  //});
-//
-  //// Manage Role (HR Manager)
-  //const managerSlugs = [
-  //  ...basicSlugs,
-  //  "employee:create",
-  //  "employee:update",
-  //  "meal:create",
-  //  "meal:delete",
-  //  "meal:update",
-  //  "integration:dominio",
-  //];
-  //const managerPermissions = allPermissions.filter((p) =>
-  //  managerSlugs.includes(p.slug)
-  //);
-//
-  //await prisma.role.upsert({
-  //  where: { name: "Manager" },
-  //  update: {
-  //    permissions: {
-  //      set: managerPermissions.map((p) => ({ id: p.id })),
-  //    },
-  //  },
-  //  create: {
-  //    name: "Manager",
-  //    description: "Gestor de RH e Operações",
-  //    permissions: {
-  //      connect: managerPermissions.map((p) => ({ id: p.id })),
-  //    },
-  //  },
-  //});
 
   // 3. Create Default Group & Company
   const group = await prisma.group.upsert({
