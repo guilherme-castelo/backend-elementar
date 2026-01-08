@@ -105,18 +105,65 @@ class MealsService {
     return mealsRepository.delete(id);
   }
 
-  async countPending(companyId) {
+  async countPending(companyId, month, year) {
+    let referenceDate = new Date();
+    if (month && year) {
+      // If month/year provided, we target the billing period associated with that month.
+      // E.g. Month=01 (Jan), Year=2026.
+      // We pick a safe date in that month (e.g. 1st) to determine the period logic.
+      // Period logic:
+      // Jan 1st -> Day=1 < 26 -> Start=Dec 26, End=Jan 25.
+      // Matches "Reference Month: January".
+      referenceDate = new Date(year, month - 1, 1);
+    }
+    const { periodStart, periodEnd } = this._getPeriod(referenceDate);
+
+    const start = new Date(periodStart);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(periodEnd);
+    end.setHours(23, 59, 59, 999);
+
     return mealsRepository.count({
       companyId: parseInt(companyId),
       status: "PENDING_LINK",
+      date: {
+        gte: start,
+        lte: end,
+      },
     });
   }
 
-  async getPendingMeals(companyId) {
+  async getPendingMeals(companyId, month, year) {
+    let referenceDate = new Date();
+    if (month && year) {
+      referenceDate = new Date(year, month - 1, 1);
+    }
+    const { periodStart, periodEnd } = this._getPeriod(referenceDate);
+
+    // Ensure strict comparison including time for the end date if needed,
+    // but _getPeriod returns Date objects.
+    // periodEnd is usually day 25 at 00:00:00 by default in _getPeriod logic?
+    // Let's check _getPeriod.
+    // It returns: end = new Date(year, month, 25); -> defaults to 00:00:00.
+    // If we want to include the whole day of 25th, we should set end of day.
+    // Or check if _getPeriod is used elsewhere for strict equality.
+
+    // Let's improve the query to cover the range.
+    const start = new Date(periodStart);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(periodEnd);
+    end.setHours(23, 59, 59, 999);
+
     return mealsRepository.findMany({
       where: {
         companyId: parseInt(companyId),
         status: "PENDING_LINK",
+        date: {
+          gte: start,
+          lte: end,
+        },
       },
       orderBy: { date: "desc" },
     });

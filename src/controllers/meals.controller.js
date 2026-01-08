@@ -30,7 +30,8 @@ exports.delete = async (req, res, next) => {
 exports.getPendingCount = async (req, res, next) => {
   try {
     const { companyId } = req.user || { companyId: 1 };
-    const count = await mealsService.countPending(companyId);
+    const { month, year } = req.query;
+    const count = await mealsService.countPending(companyId, month, year);
     res.json({ count });
   } catch (error) {
     next(error);
@@ -50,7 +51,8 @@ exports.countByEmployee = async (req, res, next) => {
 exports.getPending = async (req, res, next) => {
   try {
     const { companyId } = req.user || { companyId: 1 };
-    const data = await mealsService.getPendingMeals(companyId);
+    const { month, year } = req.query;
+    const data = await mealsService.getPendingMeals(companyId, month, year);
     res.json(data);
   } catch (error) {
     next(error);
