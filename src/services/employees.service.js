@@ -110,7 +110,11 @@ class EmployeesService {
         } else if (mealsAction === "UNLINK") {
           await tx.meal.updateMany({
             where: { employeeId: parseInt(id) },
-            data: { employeeId: null, status: "PENDING_LINK" },
+            data: {
+              employeeId: null,
+              status: "PENDING_LINK",
+              matriculaSnapshot: emp.matricula,
+            },
           });
         } else if (mealsAction === "UNLINK_IGNORE") {
           await tx.meal.updateMany({
@@ -119,6 +123,7 @@ class EmployeesService {
               employeeId: null,
               status: "PENDING_LINK",
               ignoredInExport: true,
+              matriculaSnapshot: emp.matricula,
             },
           });
         }
@@ -139,12 +144,24 @@ class EmployeesService {
     // Transactional Delete
     return prisma.$transaction(async (tx) => {
       if (mealsAction) {
+        let matricula = "";
+        if (mealsAction.startsWith("UNLINK")) {
+          const current = await tx.employee.findUnique({
+            where: { id: parseInt(id) },
+          });
+          if (current) matricula = current.matricula;
+        }
+
         if (mealsAction === "DELETE") {
           await tx.meal.deleteMany({ where: { employeeId: parseInt(id) } });
         } else if (mealsAction === "UNLINK") {
           await tx.meal.updateMany({
             where: { employeeId: parseInt(id) },
-            data: { employeeId: null, status: "PENDING_LINK" },
+            data: {
+              employeeId: null,
+              status: "PENDING_LINK",
+              matriculaSnapshot: matricula,
+            },
           });
         } else if (mealsAction === "UNLINK_IGNORE") {
           await tx.meal.updateMany({
@@ -153,6 +170,7 @@ class EmployeesService {
               employeeId: null,
               status: "PENDING_LINK",
               ignoredInExport: true,
+              matriculaSnapshot: matricula,
             },
           });
         }

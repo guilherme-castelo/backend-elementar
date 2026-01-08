@@ -64,7 +64,9 @@ class MealsService {
       mealDate.setHours(0, 0, 0, 0);
 
       if (demissao <= mealDate) {
-        throw new ConflictError("Cannot register meal: Employee is dismissed prior to or on this date.");
+        throw new ConflictError(
+          "Cannot register meal: Employee is dismissed prior to or on this date."
+        );
       }
     }
 
@@ -73,9 +75,15 @@ class MealsService {
     const endOfDay = new Date(dateObj);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const existing = await mealsRepository.findByEmployeeAndDate(employeeId, startOfDay, endOfDay);
+    const existing = await mealsRepository.findByEmployeeAndDate(
+      employeeId,
+      startOfDay,
+      endOfDay
+    );
     if (existing) {
-      throw new ConflictError("Meal already exists for this employee on this date.");
+      throw new ConflictError(
+        "Meal already exists for this employee on this date."
+      );
     }
 
     const { periodStart, periodEnd } = this._getPeriod(dateObj);
@@ -89,6 +97,7 @@ class MealsService {
       periodEnd,
       employeeNameSnapshot: `${employee.firstName} ${employee.lastName}`,
       employeeSectorSnapshot: employee.setor || "N/A",
+      matriculaSnapshot: employee.matricula,
     });
   }
 
@@ -156,7 +165,9 @@ class MealsService {
   }
 
   async analyzeBatch(data, companyId) {
-    const employees = await employeesRepository.getAll({ companyId: parseInt(companyId) });
+    const employees = await employeesRepository.getAll({
+      companyId: parseInt(companyId),
+    });
 
     const employeeMap = new Map(employees.map((e) => [e.matricula, e]));
     const valid = [];
@@ -179,7 +190,11 @@ class MealsService {
         const brDateRegex = /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/;
         const match = dateStr.toString().match(brDateRegex);
         if (match) {
-          dateObj = new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]));
+          dateObj = new Date(
+            parseInt(match[3]),
+            parseInt(match[2]) - 1,
+            parseInt(match[1])
+          );
         } else {
           dateObj = new Date(dateStr);
         }
@@ -214,7 +229,9 @@ class MealsService {
       collisions.forEach((m) => {
         if (m.employeeId) {
           const d = new Date(m.date);
-          const k = `${m.employeeId}_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`;
+          const k = `${
+            m.employeeId
+          }_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`;
           mealMap.add(k);
         }
       });
@@ -243,7 +260,9 @@ class MealsService {
 
       if (employee) {
         const d = new Date(dateObj);
-        const k = `${employee.id}_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`;
+        const k = `${
+          employee.id
+        }_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`;
         if (mealMap.has(k)) {
           invalid.push({
             row,
@@ -286,7 +305,9 @@ class MealsService {
   async importBulk(records, companyId) {
     const results = [];
 
-    const employees = await employeesRepository.getAll({ companyId: parseInt(companyId) });
+    const employees = await employeesRepository.getAll({
+      companyId: parseInt(companyId),
+    });
     const employeeMap = new Map(employees.map((e) => [e.matricula, e]));
 
     for (const record of records) {
@@ -323,4 +344,3 @@ class MealsService {
 }
 
 module.exports = new MealsService();
-
