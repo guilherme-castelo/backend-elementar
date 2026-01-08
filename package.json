@@ -7,6 +7,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "cross-env NODE_ENV=test jest",
+    "backup:manual": "docker exec elementar_backup /usr/local/bin/run_backup.sh",
     "test:cov": "cross-env NODE_ENV=test jest --coverage"
   },
   "prisma": {
