@@ -106,3 +106,25 @@ exports.importBulk = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.deleteBulk = async (req, res, next) => {
+  try {
+    const { companyId } = req.user || { companyId: 1 };
+    const { ids } = req.body;
+    await mealsService.deleteBulk(ids, companyId);
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.moveBulk = async (req, res, next) => {
+  try {
+    const { companyId } = req.user || { companyId: 1 };
+    const { ids, newDate } = req.body;
+    const result = await mealsService.moveBulk(ids, newDate, companyId);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};

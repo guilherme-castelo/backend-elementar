@@ -84,6 +84,16 @@ router.post(
   controller.analyzeImport
 );
 router.post("/import", checkPermission("meal:create"), controller.importBulk);
+router.post(
+  "/bulk-delete",
+  checkPermission("meal:delete"),
+  controller.deleteBulk
+);
+router.post(
+  "/bulk-move",
+  checkPermission("meal:update"),
+  controller.moveBulk
+);
 router.get(
   "/count/employee/:employeeId",
   checkPermission("meal:read"),

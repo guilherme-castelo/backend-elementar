@@ -388,6 +388,92 @@ class MealsService {
     }
     return results;
   }
+
+  async deleteBulk(ids, companyId) {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new Error("Invalid or empty IDs list");
+    }
+    const numericIds = ids.map((id) => parseInt(id));
+    return mealsRepository.deleteMany({
+      id: { in: numericIds },
+      companyId: parseInt(companyId),
+    });
+  }
+
+  async moveBulk(ids, newDateStr, companyId) {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new Error("Invalid or empty IDs list");
+    }
+    const numericIds = ids.map((id) => parseInt(id));
+
+    // 1. Fetch meals being moved
+    const meals = await mealsRepository.getAll({
+      id: { in: numericIds },
+      companyId: parseInt(companyId),
+    });
+
+    if (meals.length === 0) {
+      throw new NotFoundError("No meals found to move");
+    }
+
+    const targetDateObj = new Date(newDateStr);
+    if (isNaN(targetDateObj.getTime())) {
+      throw new Error("Invalid target date");
+    }
+
+    const { periodStart, periodEnd } = this._getPeriod(targetDateObj);
+
+    const startOfDay = new Date(targetDateObj);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDateObj);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // 2. Validate each meal for collisions and dismissal
+    for (const meal of meals) {
+      // A. Check dismissal if employee exists
+      if (meal.employee) {
+        if (meal.employee.dataDemissao) {
+          const demissao = new Date(meal.employee.dataDemissao);
+          demissao.setHours(0, 0, 0, 0);
+          const mealDate = new Date(targetDateObj);
+          mealDate.setHours(0, 0, 0, 0);
+
+          if (demissao <= mealDate) {
+            const name = `${meal.employee.firstName} ${meal.employee.lastName || ""}`.trim();
+            throw new ConflictError(
+              `Não é possível mover a refeição: O funcionário ${name} está demitido na nova data.`
+            );
+          }
+        }
+
+        // B. Check collision for same employee on new date
+        const existing = await mealsRepository.findByEmployeeAndDate(
+          meal.employeeId,
+          startOfDay,
+          endOfDay
+        );
+        if (existing && !numericIds.includes(existing.id)) {
+          const name = `${meal.employee.firstName} ${meal.employee.lastName || ""}`.trim();
+          throw new ConflictError(
+            `Conflito: O funcionário ${name} já possui uma refeição cadastrada na nova data.`
+          );
+        }
+      }
+    }
+
+    // 3. Perform the updates
+    return mealsRepository.updateMany(
+      {
+        id: { in: numericIds },
+        companyId: parseInt(companyId),
+      },
+      {
+        date: targetDateObj,
+        periodStart,
+        periodEnd,
+      }
+    );
+  }
 }
 
 module.exports = new MealsService();

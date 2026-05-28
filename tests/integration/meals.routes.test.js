@@ -14,12 +14,19 @@ describe("Integration: Meals Routes", () => {
 
   const permissionRegister = { slug: "meal:create" };
   const permissionReport = { slug: "meal:read" };
+  const permissionDelete = { slug: "meal:delete" };
+  const permissionUpdate = { slug: "meal:update" };
 
   const adminUser = {
     id: 1,
     isActive: true,
     role: {
-      permissions: [permissionRegister, permissionReport],
+      permissions: [
+        permissionRegister,
+        permissionReport,
+        permissionDelete,
+        permissionUpdate,
+      ],
     },
     companyId: 1,
   };
@@ -88,6 +95,101 @@ describe("Integration: Meals Routes", () => {
         .then((res) => {
           expect(Array.isArray(res.body)).toBe(true);
         });
+    });
+  });
+
+  describe("POST /meals/bulk-delete", () => {
+    it("should delete multiple meals successfully", async () => {
+      prismaMock.user.findUnique.mockResolvedValue(adminUser);
+      prismaMock.meal.deleteMany.mockResolvedValue({ count: 2 });
+
+      await request(app)
+        .post("/meals/bulk-delete")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ ids: [1, 2] })
+        .expect(204);
+    });
+  });
+
+  describe("POST /meals/bulk-move", () => {
+    it("should move multiple meals successfully", async () => {
+      prismaMock.user.findUnique.mockResolvedValue(adminUser);
+
+      // getAll returns meals to move
+      prismaMock.meal.findMany
+        .mockResolvedValueOnce([
+          {
+            id: 1,
+            employeeId: 10,
+            employee: {
+              id: 10,
+              firstName: "John",
+              lastName: "Doe",
+              dataDemissao: null,
+            },
+          },
+        ]);
+
+      // findFirst returns no collisions
+      prismaMock.meal.findFirst.mockResolvedValue(null);
+
+      // updateMany returns update count
+      prismaMock.meal.updateMany.mockResolvedValue({ count: 1 });
+
+      await request(app)
+        .post("/meals/bulk-move")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ ids: [1], newDate: "2026-06-01" })
+        .expect(200);
+    });
+
+    it("should return 409 Conflict if employee is dismissed prior to or on target date", async () => {
+      prismaMock.user.findUnique.mockResolvedValue(adminUser);
+
+      prismaMock.meal.findMany.mockResolvedValue([
+        {
+          id: 1,
+          employeeId: 10,
+          employee: {
+            id: 10,
+            firstName: "John",
+            lastName: "Doe",
+            dataDemissao: "2026-05-20", // Dismissed before target date
+          },
+        },
+      ]);
+
+      await request(app)
+        .post("/meals/bulk-move")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ ids: [1], newDate: "2026-05-25" })
+        .expect(409);
+    });
+
+    it("should return 409 Conflict if meal already exists for employee on target date", async () => {
+      prismaMock.user.findUnique.mockResolvedValue(adminUser);
+
+      prismaMock.meal.findMany.mockResolvedValue([
+        {
+          id: 1,
+          employeeId: 10,
+          employee: {
+            id: 10,
+            firstName: "John",
+            lastName: "Doe",
+            dataDemissao: null,
+          },
+        },
+      ]);
+
+      // findFirst returns an existing meal (collision)
+      prismaMock.meal.findFirst.mockResolvedValue({ id: 99 });
+
+      await request(app)
+        .post("/meals/bulk-move")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ ids: [1], newDate: "2026-06-01" })
+        .expect(409);
     });
   });
 });
