@@ -9,63 +9,54 @@ datasource db {
 }
 
 model Company {
-  id       Int     @id @default(autoincrement())
-  name     String
-  cnpj     String?
-  isActive Boolean @default(true)
-  type     String  @default("MATRIZ") // MATRIZ, FILIAL
-
-  groupId String?
-  group   Group?  @relation(fields: [groupId], references: [id])
-
-  members UserMembership[]
-
-  // Manager Definition
-  managerId Int?
-  manager   User? @relation("CompanyManager", fields: [managerId], references: [id])
-
-  // Roles available/scoped to this company
-  roles Role[]
-
-  // Domínio Web Integration
-  dominioRubric String?
-  dominioCode   String?
-
-  // SaaS Fields
+  id                    Int              @id @default(autoincrement())
+  name                  String
+  cnpj                  String?
+  isActive              Boolean          @default(true)
+  type                  String           @default("MATRIZ")
+  groupId               String?
+  managerId             Int?
+  dominioRubric         String?
+  dominioCode           String?
   planId                Int?
-  plan                  Plan?     @relation(fields: [planId], references: [id])
-  status                String    @default("active") // active, overdue, suspended
+  status                String           @default("active")
   subscriptionExpiresAt DateTime?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  userId                Int?
+  group                 Group?           @relation(fields: [groupId], references: [id])
+  manager               User?            @relation("CompanyManager", fields: [managerId], references: [id])
+  plan                  Plan?            @relation(fields: [planId], references: [id])
+  user                  User?            @relation(fields: [userId], references: [id])
+  employees             Employee[]
+  meals                 Meal[]
+  users                 User[]           @relation("LegacyCompanyUsers")
+  members               UserMembership[]
+  roles                 Role[]           @relation("CompanyToRole")
 
-  users     User[]     @relation("LegacyCompanyUsers")
-  employees Employee[]
-  meals     Meal[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-
-  user   User? @relation(fields: [userId], references: [id])
-  userId Int?
+  @@index([groupId], map: "Company_groupId_fkey")
+  @@index([managerId], map: "Company_managerId_fkey")
+  @@index([planId], map: "Company_planId_fkey")
+  @@index([userId], map: "Company_userId_fkey")
 }
 
 model Plan {
-  id       Int     @id @default(autoincrement())
-  name     String  @unique // Free, Starter, Pro
-  maxUsers Int
-  features String // JSON string: ["reports", "api", "priority_support"]
-  price    Decimal @default(0.0)
-
-  companies Company[]
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  maxUsers  Int
+  features  String
+  price     Decimal   @default(0.000000000000000000000000000000)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+  companies Company[]
 }
 
 model Invitation {
-  id        String @id @default(uuid())
+  id        String   @id @default(uuid())
   email     String
-  token     String @unique
+  token     String   @unique
   roleId    Int
   companyId Int
-
   expiresAt DateTime
   createdAt DateTime @default(now())
 
@@ -73,14 +64,13 @@ model Invitation {
 }
 
 model AuditLog {
-  id        String  @id @default(uuid())
-  actorId   Int? // User who performed action
-  action    String // CREATE, UPDATE, DELETE
-  entity    String // User, Permisson, Company
-  entityId  String // ID of affected entity
-  details   String? // JSON with before/after data
+  id        String   @id @default(uuid())
+  actorId   Int?
+  action    String
+  entity    String
+  entityId  String
+  details   String?
   ipAddress String?
-
   createdAt DateTime @default(now())
 }
 
@@ -88,41 +78,37 @@ model Group {
   id        String    @id @default(uuid())
   name      String
   slug      String    @unique
-  companies Company[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+  companies Company[]
 }
 
 model UserMembership {
-  id     String @id @default(uuid())
-  userId Int
-  user   User   @relation(fields: [userId], references: [id])
-
+  id        String   @id @default(uuid())
+  userId    Int
   companyId Int
-  company   Company @relation(fields: [companyId], references: [id])
-
-  roleId Int
-  role   Role @relation(fields: [roleId], references: [id])
-
+  roleId    Int
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  company   Company  @relation(fields: [companyId], references: [id])
+  role      Role     @relation(fields: [roleId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, companyId])
+  @@index([companyId], map: "UserMembership_companyId_fkey")
+  @@index([roleId], map: "UserMembership_roleId_fkey")
 }
 
-// RBAC Models
 model Feature {
-  id          Int     @id @default(autoincrement())
+  id          Int          @id @default(autoincrement())
   name        String
-  slug        String  @unique
+  slug        String       @unique
   description String?
-  isActive    Boolean @default(true)
-
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   permissions Permission[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model Permission {
@@ -130,65 +116,54 @@ model Permission {
   name        String
   slug        String  @unique
   description String?
+  featureId   Int
+  feature     Feature @relation(fields: [featureId], references: [id])
+  roles       Role[]  @relation("PermissionToRole")
 
-  featureId Int
-  feature   Feature @relation(fields: [featureId], references: [id])
-
-  roles Role[]
+  @@index([featureId], map: "Permission_featureId_fkey")
 }
 
 model Role {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
   description String?
-
-  permissions Permission[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
   users       User[]
   members     UserMembership[]
-
-  // Scoping: This role is valid for these companies
-  companies Company[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  companies   Company[]        @relation("CompanyToRole")
+  permissions Permission[]     @relation("PermissionToRole")
 }
 
 model User {
-  id          Int     @id @default(autoincrement())
-  email       String  @unique
-  password    String
-  name        String
-  phone       String?
-  jobTitle    String?
-  bio         String?
-  address     String?
-  preferences String?
-  isActive    Boolean @default(true)
+  id                 Int              @id @default(autoincrement())
+  email              String           @unique
+  password           String
+  name               String
+  phone              String?
+  jobTitle           String?
+  bio                String?
+  address            String?
+  preferences        String?
+  isActive           Boolean          @default(true)
+  companyId          Int?
+  roleId             Int?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  managedCompanies   Company[]        @relation("CompanyManager")
+  companies          Company[]
+  sentMessages       Message[]
+  notifications      Notification[]
+  ownedTasks         Task[]           @relation("TaskOwner")
+  comments           TaskComment[]
+  company            Company?         @relation("LegacyCompanyUsers", fields: [companyId], references: [id])
+  role               Role?            @relation(fields: [roleId], references: [id])
+  memberships        UserMembership[]
+  collaboratingTasks Task[]           @relation("TaskCollaborators")
+  conversations      Conversation[]   @relation("UserConversations")
 
-  memberships UserMembership[]
-
-  // Deprecated (Legacy) - Keeping for migration
-  companyId Int?
-  company   Company? @relation("LegacyCompanyUsers", fields: [companyId], references: [id])
-
-  managedCompanies Company[] @relation("CompanyManager")
-
-  roleId Int?
-  role   Role? @relation(fields: [roleId], references: [id])
-
-  ownedTasks         Task[] @relation("TaskOwner")
-  collaboratingTasks Task[] @relation("TaskCollaborators")
-
-  comments TaskComment[]
-
-  notifications Notification[]
-
-  sentMessages  Message[]
-  conversations Conversation[] @relation("UserConversations") // Implicit M:N
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  companies Company[]
+  @@index([companyId], map: "User_companyId_fkey")
+  @@index([roleId], map: "User_roleId_fkey")
 }
 
 model Employee {
@@ -201,110 +176,103 @@ model Employee {
   setor        String?
   dataAdmissao DateTime
   dataDemissao DateTime?
+  companyId    Int
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  company      Company   @relation(fields: [companyId], references: [id])
+  meals        Meal[]
 
-  companyId Int
-  company   Company @relation(fields: [companyId], references: [id])
-
-  meals Meal[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@index([companyId], map: "Employee_companyId_fkey")
 }
 
 model Task {
-  id          String  @id @default(uuid()) // Using UUID to match frontend expectation of string IDs optionally
-  title       String
-  description String?
-  status      String  @default("todo") // todo, doing, done
-  priority    String  @default("medium") // low, medium, high
-  isPublic    Boolean @default(false)
+  id            String        @id @default(uuid())
+  title         String
+  description   String?
+  status        String        @default("todo")
+  priority      String        @default("medium")
+  isPublic      Boolean       @default(false)
+  ownerUserId   Int
+  createdAt     DateTime      @default(now())
+  completedAt   DateTime?
+  updatedAt     DateTime      @updatedAt
+  owner         User          @relation("TaskOwner", fields: [ownerUserId], references: [id])
+  comments      TaskComment[]
+  collaborators User[]        @relation("TaskCollaborators")
 
-  ownerUserId Int
-  owner       User @relation("TaskOwner", fields: [ownerUserId], references: [id])
-
-  collaborators User[] @relation("TaskCollaborators")
-
-  comments TaskComment[]
-
-  createdAt   DateTime  @default(now())
-  completedAt DateTime?
-  updatedAt   DateTime  @updatedAt
+  @@index([ownerUserId], map: "Task_ownerUserId_fkey")
 }
 
 model TaskComment {
-  id      Int    @id @default(autoincrement())
-  content String
-
-  taskId String
-  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-  authorId Int
-  author   User @relation(fields: [authorId], references: [id])
-
+  id        Int      @id @default(autoincrement())
+  content   String
+  taskId    String
+  authorId  Int
   createdAt DateTime @default(now())
+  author    User     @relation(fields: [authorId], references: [id])
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([authorId], map: "TaskComment_authorId_fkey")
+  @@index([taskId], map: "TaskComment_taskId_fkey")
 }
 
 model Notification {
-  id          String  @id @default(uuid())
-  type        String // chat, task-assigned, task-comment
+  id          String   @id @default(uuid())
+  type        String
   title       String
   description String
   entityId    String?
+  userId      Int
+  actorName   String?
+  read        Boolean  @default(false)
+  archived    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
 
-  userId Int
-  user   User @relation(fields: [userId], references: [id])
-
-  actorName String?
-  read      Boolean @default(false)
-  archived  Boolean @default(false)
-
-  createdAt DateTime @default(now())
+  @@index([userId], map: "Notification_userId_fkey")
 }
 
 model Conversation {
   id            String    @id @default(uuid())
   createdAt     DateTime  @default(now())
   lastMessageAt DateTime?
-
-  participants User[]    @relation("UserConversations")
-  messages     Message[]
+  messages      Message[]
+  participants  User[]    @relation("UserConversations")
 }
 
 model Message {
-  id      String @id @default(uuid())
-  content String
-
-  senderId Int
-  sender   User @relation(fields: [senderId], references: [id])
-
+  id             String       @id @default(uuid())
+  content        String
+  senderId       Int
   conversationId String
+  createdAt      DateTime     @default(now())
+  deliveredAt    DateTime?
+  readAt         DateTime?
+  status         String?
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id])
 
-  createdAt   DateTime  @default(now())
-  deliveredAt DateTime?
-  readAt      DateTime?
-  status      String? // sent, delivered, read
+  @@index([conversationId], map: "Message_conversationId_fkey")
+  @@index([senderId], map: "Message_senderId_fkey")
 }
 
 model Meal {
-  id          Int       @id @default(autoincrement())
-  date        DateTime
-  price       Decimal
-  periodStart DateTime?
-  periodEnd   DateTime?
-
-  employeeId Int?
-  employee   Employee? @relation(fields: [employeeId], references: [id])
-
-  // Snapshots for history (redundant but safe for reporting if generic employee changes)
-  matriculaSnapshot      String  @default("") // Required in logic, default empty for migration safety if needed
+  id                     Int       @id @default(autoincrement())
+  date                   DateTime
+  price                  Decimal
+  periodStart            DateTime?
+  periodEnd              DateTime?
+  employeeId             Int?
+  matriculaSnapshot      String    @default("")
   employeeNameSnapshot   String?
   employeeSectorSnapshot String?
-  status                 String  @default("LINKED") // LINKED, PENDING_LINK
-  ignoredInExport        Boolean @default(false)
+  status                 String    @default("LINKED")
+  ignoredInExport        Boolean   @default(false)
+  companyId              Int
+  createdAt              DateTime  @default(now())
+  company                Company   @relation(fields: [companyId], references: [id])
+  employee               Employee? @relation(fields: [employeeId], references: [id])
 
-  companyId Int
-  company   Company @relation(fields: [companyId], references: [id])
-
-  createdAt DateTime @default(now())
+  @@index([companyId], map: "Meal_companyId_fkey")
+  @@index([employeeId], map: "Meal_employeeId_fkey")
 }
