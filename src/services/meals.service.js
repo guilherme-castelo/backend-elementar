@@ -92,7 +92,7 @@ class MealsService {
       employeeId: parseInt(employeeId),
       companyId: parseInt(companyId) || employee.companyId,
       date: dateObj,
-      price: 3.0,
+      price: 3.5,
       periodStart,
       periodEnd,
       employeeNameSnapshot: `${employee.firstName} ${employee.lastName}`,
@@ -276,9 +276,8 @@ class MealsService {
       collisions.forEach((m) => {
         if (m.employeeId) {
           const d = new Date(m.date);
-          const k = `${
-            m.employeeId
-          }_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`;
+          const k = `${m.employeeId
+            }_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`;
           mealMap.add(k);
         }
       });
@@ -307,9 +306,8 @@ class MealsService {
 
       if (employee) {
         const d = new Date(dateObj);
-        const k = `${
-          employee.id
-        }_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`;
+        const k = `${employee.id
+          }_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`;
         if (mealMap.has(k)) {
           invalid.push({
             row,
@@ -322,7 +320,7 @@ class MealsService {
       const cleanRow = {
         matricula,
         date: dateObj,
-        price: row.price || row.valor || 3.0,
+        price: row.price || row.valor || 3.5,
       };
 
       if (employee) {
@@ -366,7 +364,7 @@ class MealsService {
         await mealsRepository.create({
           companyId: parseInt(companyId),
           date: dateObj,
-          price: record.price || 3.0,
+          price: record.price || 3.5,
           periodStart,
           periodEnd,
           employeeId: employee ? employee.id : null,
@@ -452,6 +450,7 @@ class MealsService {
           startOfDay,
           endOfDay
         );
+
         if (existing && !numericIds.includes(existing.id)) {
           const name = `${meal.employee.firstName} ${meal.employee.lastName || ""}`.trim();
           throw new ConflictError(
